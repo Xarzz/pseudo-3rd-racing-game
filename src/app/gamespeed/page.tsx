@@ -1333,7 +1333,8 @@ export default function GameSpeedPage() {
                         </button>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
+                        {/* Brake Button */}
                         <button
                             style={{
                                 width: '5rem', height: '5rem',
@@ -1350,9 +1351,32 @@ export default function GameSpeedPage() {
                         >
                             <div style={{ width: '20px', height: '20px', backgroundColor: 'rgba(255, 255, 255, 0.4)', borderRadius: '4px' }} />
                         </button>
+
+                        {/* Gas Button - NEW */}
                         <button
                             style={{
-                                width: '7rem', height: '7rem',
+                                width: '8rem', height: '8rem',
+                                background: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+                                backdropFilter: 'blur(24px)',
+                                borderRadius: '2.5rem',
+                                border: 'none',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', outline: 'none',
+                                boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
+                                position: 'relative',
+                                overflow: 'hidden'
+                            }}
+                            onTouchStart={() => state.current.keyFaster = true}
+                            onTouchEnd={() => state.current.keyFaster = false}
+                        >
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent)', animation: 'shimmer 3s infinite' }} />
+                            <span style={{ fontSize: '1.75rem', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>GO</span>
+                        </button>
+
+                        {/* Boost Button */}
+                        <button
+                            style={{
+                                width: '6rem', height: '6rem',
                                 background: 'linear-gradient(135deg, #ef4444 0%, #7f1d1d 100%)',
                                 backdropFilter: 'blur(24px)',
                                 borderRadius: '2rem',
@@ -1367,7 +1391,7 @@ export default function GameSpeedPage() {
                             onTouchEnd={() => state.current.keyBoost = false}
                         >
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent)', animation: 'shimmer 2s infinite' }} />
-                            <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>NOS</span>
+                            <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>NOS</span>
                         </button>
                     </div>
                 </div>
