@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduRace - Racing Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-container">
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-item">
+        <span class="hud-icon">🏁</span>
+        <div class="hud-text">
+          <span class="hud-label">LAP</span>
+          <span id="lap-counter" class="hud-value">1/1</span>
+        </div>
+      </div>
+      <div class="hud-item">
+        <span class="hud-icon">⭐</span>
+        <div class="hud-text">
+          <span class="hud-label">POINTS</span>
+          <span id="points-counter" class="hud-value">0</span>
+        </div>
+      </div>
+      <div class="hud-item">
+        <span class="hud-icon">🏆</span>
+        <div class="hud-text">
+          <span class="hud-label">POSITION</span>
+          <span id="position-counter" class="hud-value">#1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mini Map -->
+    <div id="mini-map">
+      <div class="map-title">MAP</div>
+      <canvas id="map-canvas" width="100" height="100"></canvas>
+    </div>
+
+    <!-- Leaderboard -->
+    <div id="leaderboard">
+      <div class="leaderboard-title">🏆 LEADERBOARD</div>
+      <div id="leaderboard-list"></div>
+    </div>
+
+    <!-- Game Canvas -->
+    <canvas id="game-canvas" width="800" height="600"></canvas>
+
+    <!-- Countdown Overlay -->
+    <div id="countdown-overlay" class="overlay">
+      <div class="countdown-number" id="countdown-number">3</div>
+      <p class="countdown-text">Bersiap-siap!</p>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameover-overlay" class="overlay hidden">
+      <div class="overlay-content">
+        <div class="overlay-icon">💥</div>
+        <h2 class="overlay-title gameover">GAME OVER!</h2>
+        <p class="overlay-text">Keluar jalur atau nabrak penghalang</p>
+      </div>
+    </div>
+
+    <!-- Finish Overlay -->
+    <div id="finish-overlay" class="overlay hidden">
+      <div class="overlay-content">
+        <div class="overlay-icon">🎉</div>
+        <h2 class="overlay-title finish">LAP SELESAI!</h2>
+        <p class="overlay-bonus">+200 Bonus Points!</p>
+      </div>
+    </div>
+
+    <!-- Controls Hint -->
+    <div id="controls-hint">
+      Kontrol: <span>↑ / W</span> = Gas, <span>↓ / S</span> = Rem, <span>← → / A D</span> = Belok
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
