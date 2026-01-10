@@ -132,6 +132,7 @@ export default function GameSpeedPage() {
         totalLaps: 1,
         cameraDepth: 1 / Math.tan((FIELD_OF_VIEW / 2) * Math.PI / 180),
         viewMode: 'third' as 'first' | 'third'
+        bgOffset: 0,
     });
 
     const animationFrameRef = useRef<number>(0);
