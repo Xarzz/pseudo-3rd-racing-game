@@ -95,8 +95,8 @@ const COLORS = {
     SKY: '#020617', // Deep Midnight Blue/Black
     TREE: '#064e3b',
     FOG: '#020617',
-    LIGHT: { road: '#1e293b', grass: '#1a120b', rumble: '#334155', strip: '#64748b', sidewalk: '#64748b', curb: '#94a3b8' },
-    DARK: { road: '#0f172a', grass: '#0f0905', rumble: '#1e293b', strip: '', sidewalk: '#475569', curb: '#64748b' },
+    LIGHT: { road: '#101827', grass: '#050a0f', rumble: '#111827', strip: '#334155', sidewalk: '#1e293b', curb: '#334155' },
+    DARK: { road: '#0d1117', grass: '#03070b', rumble: '#0d1117', strip: '', sidewalk: '#111827', curb: '#1e293b' },
     START: { road: '#ffffff', grass: '#1e40af', rumble: '#ffffff', strip: '', sidewalk: '#ffffff', curb: '#ffffff' },
     FINISH: { road: '#000000', grass: '#000000', rumble: '#000000', strip: '', sidewalk: '#000000', curb: '#000000' }
 };
@@ -112,6 +112,7 @@ export default function GameSpeedPage() {
     const [viewMode, setViewMode] = useState<'first' | 'third'>('third');
     const [assetsLoaded, setAssetsLoaded] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
     // Refs for game loop
     const state = useRef({
@@ -457,9 +458,7 @@ export default function GameSpeedPage() {
         ctx.closePath();
         ctx.fill();
 
-        // Road
-        ctx.fillStyle = color.road;
-        // Road Area (Drawn after fog to stay sharp)
+        // Road Area
         ctx.fillStyle = color.road;
         ctx.beginPath();
         ctx.moveTo(x1 - w1, y1);
@@ -468,6 +467,27 @@ export default function GameSpeedPage() {
         ctx.lineTo(x1 + w1, y1);
         ctx.closePath();
         ctx.fill();
+
+        // --- Environmental Polish: Wet Road Reflections & City Light Glare ---
+        // 1. Subtle 'Wet Surface' Sheen
+        const roadGradient = ctx.createLinearGradient(0, y2, 0, y1);
+        roadGradient.addColorStop(0, 'rgba(255, 255, 255, 0.02)');
+        roadGradient.addColorStop(1, 'rgba(255, 255, 255, 0.08)');
+        ctx.fillStyle = roadGradient;
+        ctx.fill();
+
+        // 2. Random 'City Light' Reflected Glares on Asphalt
+        // Based on segment index to stay stable as you drive
+        const hash = (Math.sin(y1 * 0.1) * 10000) % 1;
+        if (hash > 0.8) {
+            const rx = x1 - w1 + (Math.abs(hash) * w1 * 2);
+            const rw = w1 * 0.2;
+            const grad = ctx.createRadialGradient(rx, y1, 0, rx, y1, rw);
+            grad.addColorStop(0, 'rgba(59, 130, 246, 0.15)'); // Blue neon glare
+            grad.addColorStop(1, 'rgba(59, 130, 246, 0)');
+            ctx.fillStyle = grad;
+            ctx.fill();
+        }
 
         // Zebra Cross
         if (zebra) {
@@ -510,9 +530,9 @@ export default function GameSpeedPage() {
 
         // Scaling based on world-width (relative to ROAD_WIDTH 2000)
         const name = (sprite as any).assetName;
-        let worldWidth = 1100; // NPC cars & Rival (Increased)
+        let worldWidth = 800; // NPC cars & Rival (Reduced from 1100)
         if (name === 'traffic_light') worldWidth = 1000;
-        else if (name === 'truck1' || name === 'truck2') worldWidth = 1700; // Trucks (Increased)
+        else if (name === 'truck1' || name === 'truck2') worldWidth = 1300; // Trucks (Reduced from 1700)
         else if (name === 'kaffe1' || name === 'restoran1' || name === 'seven_eleven') worldWidth = 6500; // Buildings
 
         const destW = scale * worldWidth * (width / 2);
@@ -545,6 +565,30 @@ export default function GameSpeedPage() {
             const x = (steer * -30);
             const y = height - (destH * 0.8) + bounce; // Only show top 80% of the sprite, or just push it down 20%
 
+            // --- Boost Effect (1st Person POV side glow & sparks) ---
+            if (state.current.keyBoost && state.current.nos > 0) {
+                ctx.save();
+                // Bottom screen glow
+                const gradBoost = ctx.createLinearGradient(0, height, 0, height - 200);
+                gradBoost.addColorStop(0, 'rgba(239, 68, 68, 0.4)'); // Reddish
+                gradBoost.addColorStop(0.5, 'rgba(251, 146, 60, 0.2)'); // Orange
+                gradBoost.addColorStop(1, 'rgba(251, 146, 60, 0)');
+                ctx.fillStyle = gradBoost;
+                ctx.fillRect(0, 0, width, height);
+
+                // Flying sparks towards the camera
+                for (let i = 0; i < 5; i++) {
+                    const sx = Math.random() * width;
+                    const sy = height - (Math.random() * 300);
+                    const ssize = 1 + Math.random() * 3;
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, ssize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
             // Apply slight tilt when steering for more immersive feel
             if (keyLeft || keyRight) {
                 ctx.save();
@@ -569,7 +613,9 @@ export default function GameSpeedPage() {
 
         if (!sprite) return;
 
-        const bounce = (1.2 * Math.random() * speedPercent * resolution) * Util.randomChoice([1, -1]);
+        let bounceMultiplier = 1.2;
+        if (state.current.keyBoost && state.current.nos > 0) bounceMultiplier = 4.0;
+        const bounce = (bounceMultiplier * Math.random() * speedPercent * resolution) * Util.randomChoice([1, -1]);
 
         // Fixed scale for visibility (adjusted for wider road)
         const playerScale = (width / 1920) * 1.5;
@@ -583,22 +629,60 @@ export default function GameSpeedPage() {
         if (state.current.keyBoost && state.current.nos > 0) {
             ctx.save();
             const flameW = destW * 0.15;
-            const flameH = destH * 0.4;
+            const flameH = destH * 0.8; // Taller flames for more impact
             const exhaustY = destY + destH * 0.85;
             const leftExhX = destX + destW * 0.25;
             const rightExhX = destX + destW * 0.75;
 
             [leftExhX, rightExhX].forEach(exX => {
-                const flicker = Math.random() * 1.5;
-                const gradient = ctx.createRadialGradient(exX, exhaustY, 0, exX, exhaustY + (flameH * flicker), flameW);
-                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-                gradient.addColorStop(0.2, 'rgba(0, 255, 255, 0.8)');
-                gradient.addColorStop(0.6, 'rgba(0, 100, 255, 0.4)');
-                gradient.addColorStop(1, 'rgba(0, 0, 255, 0)');
-                ctx.fillStyle = gradient;
+                const flicker = 0.8 + Math.random() * 0.6;
+
+                // 1. Layer: Outer Glow (Red)
+                const gradOuter = ctx.createLinearGradient(exX, exhaustY, exX, exhaustY + (flameH * flicker));
+                gradOuter.addColorStop(0, 'rgba(255, 69, 0, 0.8)');  // OrangeRed
+                gradOuter.addColorStop(0.5, 'rgba(220, 38, 38, 0.4)'); // Red
+                gradOuter.addColorStop(1, 'rgba(153, 27, 27, 0)');     // Dark Red Transparent
+
+                ctx.fillStyle = gradOuter;
                 ctx.beginPath();
-                ctx.ellipse(exX, exhaustY + (flameH * 0.5), flameW * 0.8, flameH * flicker, 0, 0, Math.PI * 2);
+                ctx.moveTo(exX - flameW * 0.8, exhaustY);
+                ctx.quadraticCurveTo(exX, exhaustY + flameH * flicker * 1.2, exX + flameW * 0.8, exhaustY);
                 ctx.fill();
+
+                // 2. Layer: Middle Flame (Orange)
+                const gradMid = ctx.createLinearGradient(exX, exhaustY, exX, exhaustY + (flameH * 0.6 * flicker));
+                gradMid.addColorStop(0, 'rgba(251, 146, 60, 0.9)'); // Orange-400
+                gradMid.addColorStop(0.7, 'rgba(234, 88, 12, 0.5)'); // Orange-600
+                gradMid.addColorStop(1, 'rgba(124, 45, 18, 0)');
+
+                ctx.fillStyle = gradMid;
+                ctx.beginPath();
+                ctx.moveTo(exX - flameW * 0.5, exhaustY);
+                ctx.quadraticCurveTo(exX, exhaustY + flameH * 0.8 * flicker, exX + flameW * 0.5, exhaustY);
+                ctx.fill();
+
+                // 3. Layer: Core Flame (Yellow/White)
+                const gradCore = ctx.createLinearGradient(exX, exhaustY, exX, exhaustY + (flameH * 0.3 * flicker));
+                gradCore.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                gradCore.addColorStop(0.4, 'rgba(254, 240, 138, 0.9)'); // Yellow-100
+                gradCore.addColorStop(1, 'rgba(250, 204, 21, 0)');     // Yellow-400
+
+                ctx.fillStyle = gradCore;
+                ctx.beginPath();
+                ctx.moveTo(exX - flameW * 0.25, exhaustY);
+                ctx.quadraticCurveTo(exX, exhaustY + flameH * 0.4 * flicker, exX + flameW * 0.25, exhaustY);
+                ctx.fill();
+
+                // 4. Sparks/Ember Particles
+                for (let i = 0; i < 4; i++) {
+                    const px = exX + (Math.random() - 0.5) * flameW * 3;
+                    const py = exhaustY + Math.random() * flameH * 0.8;
+                    const size = 1 + Math.random() * 2;
+                    ctx.fillStyle = Math.random() > 0.5 ? '#fff' : '#fef01e';
+                    ctx.beginPath();
+                    ctx.arc(px, py, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             });
             ctx.restore();
         }
@@ -766,6 +850,17 @@ export default function GameSpeedPage() {
         state.current.playerX = nextPlayerX;
         state.current.speed = nextSpeed;
 
+        // --- Dynamic FOV / Tunnel Vision Effect when NOS is active ---
+        const baseDepth = 1 / Math.tan((FIELD_OF_VIEW / 2) * Math.PI / 180);
+        const targetDepth = (keyBoost && nextNos > 0) ? baseDepth * 1.5 : baseDepth; // 50% more depth = Narrower road
+
+        // Smoothly interpolate cameraDepth (lerp)
+        state.current.cameraDepth = state.current.cameraDepth + (targetDepth - state.current.cameraDepth) * dt * 5;
+
+        // Update playerZ as it depends on cameraDepth
+        state.current.playerZ = (CAMERA_HEIGHT * state.current.cameraDepth);
+        playerZ = state.current.playerZ;
+
         // HUD update
         setStats({
             speed: Math.floor((speed / MAX_SPEED) * 200),
@@ -808,30 +903,37 @@ export default function GameSpeedPage() {
         const playerY = Util.interpolate(playerSegment.p1.world.y, playerSegment.p2.world.y, playerPercent);
         const speedPercent = speed / MAX_SPEED;
 
-        // Background (Parallax Scrolling)
+        // Background (Fixed Perspective Parallax - Full Cover)
         if (sprites.bg) {
             const bg = sprites.bg;
             const bgW = bg.width;
             const bgH = bg.height;
 
-            // Calculate parallax offset based on road curve
-            const curveRotation = (playerSegment.curve * basePercent) * 400; // Increased factor for more noticeable shift
-            state.current.bgOffset = (state.current.bgOffset || 0) + (curveRotation * speedPercent * 0.002);
+            // 1. Scale to cover screen with extra width for movement
+            const scaleX = (width / bgW) * 1.3;
+            const scaleY = (height / bgH);
+            const layerScale = Math.max(scaleX, scaleY);
 
-            // Use full height or at least more than half to ensure no gaps at horizon
-            // Drawing at full height and letting segments cover the bottom part is safer
-            const destH = height;
-            const scale = destH / bgH;
-            const scaledW = bgW * scale;
+            const scaledW = bgW * layerScale;
+            const scaledH = bgH * layerScale;
 
-            // Seamless tiling for the background width
-            let scrollX = (state.current.bgOffset % scaledW);
-            if (scrollX > 0) scrollX -= scaledW;
+            // 2. Target shift logic
+            const targetShift = (playerSegment.curve * 1.5) + (playerX * 0.05);
+            state.current.bgOffset = state.current.bgOffset || 0;
+            state.current.bgOffset = state.current.bgOffset + (targetShift - state.current.bgOffset) * 0.1;
 
-            // Loop to fill the entire screen width
-            for (let x = scrollX; x < width; x += scaledW) {
-                ctx.drawImage(bg, x, 0, scaledW, destH);
-            }
+            // 3. Dynamic Clamping to prevent black bars
+            const maxOverflowX = (scaledW - width) / 2;
+            const maxAllowedFactor = maxOverflowX / scaledW;
+            state.current.bgOffset = Util.limit(state.current.bgOffset, -maxAllowedFactor, maxAllowedFactor);
+
+            // 4. Position and Render
+            const finalScrollX = ((width - scaledW) / 2) - (state.current.bgOffset * scaledW);
+            const finalScrollY = (height - scaledH) / 2;
+
+            ctx.save();
+            ctx.drawImage(bg, finalScrollX, finalScrollY, scaledW, scaledH);
+            ctx.restore();
         }
 
         let maxy = height;
@@ -912,6 +1014,7 @@ export default function GameSpeedPage() {
 
     // --- Effects ---
     useEffect(() => {
+        setMounted(true);
         if (!assetsLoaded) return;
 
         state.current.playerZ = (CAMERA_HEIGHT * state.current.cameraDepth);
@@ -1010,9 +1113,9 @@ export default function GameSpeedPage() {
             setIsMobile(window.innerWidth < 768);
         };
         window.addEventListener('resize', setSize);
-        setSize();
+        if (mounted) setSize();
         return () => window.removeEventListener('resize', setSize);
-    }, []);
+    }, [mounted]);
 
     const drawMiniMap = () => {
         const canvas = miniMapRef.current;
@@ -1198,210 +1301,233 @@ export default function GameSpeedPage() {
     };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: '#020617', overflow: 'hidden' }}>
+        <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: '#020617',
+            overflow: 'hidden',
+            filter: stats.speed > 150 ? `blur(${(stats.speed - 150) / 40}px)` : 'none', // Motion Blur at high speed
+            transition: 'filter 0.1s ease'
+        }}>
             {/* Main Game Canvas */}
             <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
 
             {/* UI Overlay - Using explicitly inline styles to bypass Tailwind generation issues */}
-            <div
-                style={{
-                    position: 'fixed',
-                    inset: 0,
-                    pointerEvents: 'none',
-                    zIndex: 200,
-                    padding: '2rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    fontFamily: 'sans-serif',
-                    color: 'white'
-                }}
-            >
+            {mounted && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        pointerEvents: 'none',
+                        zIndex: 200,
+                        padding: isMobile ? '0.75rem' : '2rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        fontFamily: 'sans-serif',
+                        color: 'white'
+                    }}
+                >
 
-                {/* Header: Stats & Map */}
-                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'center' : 'start', width: '100%', gap: '1rem' }}>
-                    {/* Velocity & Points */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '0.5rem' : '1rem', width: isMobile ? '100%' : 'auto' }}>
-                        <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '1rem', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                            <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(24px)', padding: isMobile ? '0.75rem 1.25rem' : '1.5rem', borderRadius: isMobile ? '1.5rem' : '2.5rem', border: '1px solid rgba(255, 255, 255, 0.15)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
-                                <div style={{ fontSize: isMobile ? '8px' : '10px', color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.4em', fontWeight: 900, marginBottom: '0.25rem' }}>Tele / Speed</div>
-                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                    <span style={{ fontSize: isMobile ? '2.5rem' : '4.5rem', fontWeight: 900, fontFamily: 'monospace', color: '#fbbf24', fontStyle: 'italic' }}>
-                                        {stats.speed}
-                                    </span>
-                                    <span style={{ fontSize: isMobile ? '0.75rem' : '1rem', color: 'rgba(255, 255, 255, 0.4)', fontWeight: 800, textTransform: 'uppercase' }}>KPH</span>
+                    {/* Header: Stats & Map */}
+                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'center' : 'start', width: '100%', gap: '1rem' }}>
+                        {/* Velocity & Points */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '0.5rem' : '1rem', width: isMobile ? '100%' : 'auto' }}>
+                            <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '1rem', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(20px)', padding: isMobile ? '0.75rem 1.25rem' : '1.5rem', borderRadius: isMobile ? '1.5rem' : '2.5rem', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 0 20px rgba(255,255,255,0.05)' }}>
+                                    <div style={{ fontSize: isMobile ? '8px' : '10px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.4em', fontWeight: 900, marginBottom: '0.25rem' }}>Telemetry / Speed</div>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                                        <span style={{ fontSize: isMobile ? '3rem' : '5rem', fontWeight: 900, fontFamily: 'var(--font-rajdhani), sans-serif', color: '#fff', fontStyle: 'italic', textShadow: '0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(37, 99, 235, 0.4)' }}>
+                                            {stats.speed}
+                                        </span>
+                                        <span style={{ fontSize: isMobile ? '0.75rem' : '1.1rem', color: 'rgba(255, 255, 255, 0.4)', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'var(--font-rajdhani), sans-serif', fontStyle: 'italic' }}>KPH</span>
+                                    </div>
                                 </div>
+
+                                {/* POV Toggle Button */}
+                                <button
+                                    onClick={() => {
+                                        const next = state.current.viewMode === 'first' ? 'third' : 'first';
+                                        state.current.viewMode = next;
+                                        setViewMode(next);
+                                    }}
+                                    style={{
+                                        pointerEvents: 'auto',
+                                        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                        backdropFilter: 'blur(12px)',
+                                        padding: isMobile ? '0.5rem' : '1rem',
+                                        borderRadius: isMobile ? '1rem' : '1.5rem',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: isMobile ? '0.1rem' : '0.25rem',
+                                        minWidth: isMobile ? '4rem' : '6rem'
+                                    }}
+                                >
+                                    <span style={{ fontSize: isMobile ? '1.25rem' : '1.5rem' }}>{viewMode === 'first' ? '🎥' : '👤'}</span>
+                                    <span style={{ fontSize: isMobile ? '7px' : '10px', fontWeight: 800, textTransform: 'uppercase' }}>{viewMode === 'first' ? '1st POV' : '3rd POV'}</span>
+                                </button>
                             </div>
 
-                            {/* POV Toggle Button */}
+                            <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '0.75rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(16px)', padding: isMobile ? '0.625rem 1.25rem' : '0.875rem 1.5rem', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '1rem' }}>
+                                    <span style={{ color: '#60a5fa', fontWeight: 800, fontSize: isMobile ? '0.6rem' : '0.75rem', textTransform: 'uppercase', letterSpacing: '0.2em', fontFamily: 'var(--font-rajdhani)' }}>NOS</span>
+                                    <div style={{ width: isMobile ? '60px' : '100px', height: isMobile ? '6px' : '8px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', position: 'relative', boxShadow: 'inset 0 0 5px rgba(0,0,0,0.5)' }}>
+                                        <div style={{ width: `${stats.nos}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6, #60a5fa)', boxShadow: '0 0 15px rgba(59, 130, 246, 0.8)', transition: 'width 0.1s linear' }} />
+                                    </div>
+                                    <span style={{ fontFamily: 'var(--font-rajdhani)', fontSize: isMobile ? '0.9rem' : '1.25rem', fontWeight: 800, color: '#60a5fa', textShadow: '0 0 10px rgba(96, 165, 250, 0.5)' }}>{stats.nos}%</span>
+                                </div>
+                                <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(16px)', padding: isMobile ? '0.625rem 1.25rem' : '0.875rem 1.5rem', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <span style={{ color: '#4ade80', fontWeight: 800, fontSize: isMobile ? '0.6rem' : '0.75rem', textTransform: 'uppercase', letterSpacing: '0.2em', fontFamily: 'var(--font-rajdhani)' }}>LAP</span>
+                                    <span style={{ fontFamily: 'var(--font-rajdhani)', fontSize: isMobile ? '1.25rem' : '1.75rem', fontWeight: 800, fontStyle: 'italic', textShadow: '0 0 10px rgba(74, 222, 128, 0.5)' }}>{stats.lap} / {stats.totalLaps}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Moto GP Style Mini Map */}
+                        <div style={{ position: 'relative', pointerEvents: 'auto', display: isMobile ? 'none' : 'block' }}>
+                            <div style={{ position: 'absolute', inset: '-0.75rem', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 75%)', filter: 'blur(25px)' }} />
+                            <div style={{ position: 'relative', padding: '0.25rem', backgroundColor: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(20px)', borderRadius: '3.5rem', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 30px 60px -15px rgba(0, 0, 0, 0.8)', overflow: 'hidden' }}>
+                                <canvas
+                                    ref={miniMapRef}
+                                    style={{ borderRadius: '3rem', display: 'block', opacity: 0.8 }}
+                                />
+                                {/* Pro Overlay Labels */}
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '0.75rem 0', textAlign: 'center', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                    <span style={{ fontSize: '9px', fontWeight: 900, letterSpacing: '0.5em', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontStyle: 'italic', fontFamily: 'var(--font-rajdhani)' }}>Scanner / active</span>
+                                </div>
+                                <div style={{ position: 'absolute', bottom: '1.5rem', right: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', opacity: 0.4 }}>
+                                    <span style={{ fontSize: '7px', fontWeight: 900, color: '#3b82f6', fontFamily: 'var(--font-rajdhani)' }}>GPS SIGNAL</span>
+                                    <span style={{ fontSize: '7px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-rajdhani)' }}>TRACK: ACTIVE</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer: Mobile Controls - Always Visible */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '100%', pointerEvents: 'none', paddingBottom: isMobile ? '2rem' : '1rem' }}>
+                        {/* Left Controls (Steering) */}
+                        <div style={{ display: 'flex', gap: isMobile ? '0.4rem' : '1.5rem', pointerEvents: 'auto' }}>
                             <button
-                                onClick={() => {
-                                    const next = state.current.viewMode === 'first' ? 'third' : 'first';
-                                    state.current.viewMode = next;
-                                    setViewMode(next);
-                                }}
                                 style={{
-                                    pointerEvents: 'auto',
-                                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                                    backdropFilter: 'blur(12px)',
-                                    padding: isMobile ? '0.5rem' : '1rem',
-                                    borderRadius: isMobile ? '1rem' : '1.5rem',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    gap: '0.1rem',
-                                    minWidth: isMobile ? '4rem' : '6rem'
+                                    width: isMobile ? '4.5rem' : '5.5rem', height: isMobile ? '4.5rem' : '5.5rem',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    backdropFilter: 'blur(20px)',
+                                    borderRadius: isMobile ? '1.25rem' : '1.75rem',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', outline: 'none',
+                                    boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
                                 }}
+                                onTouchStart={(e) => { e.preventDefault(); state.current.keyLeft = true; }}
+                                onTouchEnd={(e) => { e.preventDefault(); state.current.keyLeft = false; }}
                             >
-                                <span style={{ fontSize: isMobile ? '1rem' : '1.5rem' }}>{viewMode === 'first' ? '🎥' : '👤'}</span>
-                                <span style={{ fontSize: isMobile ? '7px' : '10px', fontWeight: 800, textTransform: 'uppercase' }}>{viewMode === 'first' ? '1st' : '3rd'}</span>
+                                <div style={{ width: '0', height: '0', borderTop: `${isMobile ? 12 : 15}px solid transparent`, borderBottom: `${isMobile ? 12 : 15}px solid transparent`, borderRight: `${isMobile ? 18 : 22}px solid white` }} />
+                            </button>
+                            <button
+                                style={{
+                                    width: isMobile ? '4.5rem' : '5.5rem', height: isMobile ? '4.5rem' : '5.5rem',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    backdropFilter: 'blur(20px)',
+                                    borderRadius: isMobile ? '1.25rem' : '1.75rem',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', outline: 'none',
+                                    boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+                                }}
+                                onTouchStart={(e) => { e.preventDefault(); state.current.keyRight = true; }}
+                                onTouchEnd={(e) => { e.preventDefault(); state.current.keyRight = false; }}
+                            >
+                                <div style={{ width: '0', height: '0', borderTop: `${isMobile ? 12 : 15}px solid transparent`, borderBottom: `${isMobile ? 12 : 15}px solid transparent`, borderLeft: `${isMobile ? 18 : 22}px solid white` }} />
                             </button>
                         </div>
 
-                        <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '0.75rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                            <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(16px)', padding: isMobile ? '0.5rem 0.75rem' : '0.875rem 1.5rem', borderRadius: isMobile ? '1rem' : '1.25rem', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.75rem', boxShadow: '0 10px 15px rgba(0,0,0,0.3)' }}>
-                                <span style={{ color: '#60a5fa', fontWeight: 800, fontSize: isMobile ? '0.6rem' : '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>NOS</span>
-                                <div style={{ width: isMobile ? '50px' : '80px', height: isMobile ? '8px' : '12px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '6px', overflow: 'hidden', position: 'relative' }}>
-                                    <div style={{ width: `${stats.nos}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6, #60a5fa)', transition: 'width 0.1s linear' }} />
-                                </div>
-                                <span style={{ fontFamily: 'monospace', fontSize: isMobile ? '0.9rem' : '1.25rem', fontWeight: 900 }}>{stats.nos}%</span>
-                            </div>
-                            <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(16px)', padding: isMobile ? '0.5rem 0.75rem' : '0.875rem 1.5rem', borderRadius: isMobile ? '1rem' : '1.25rem', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.75rem', boxShadow: '0 10px 15px rgba(0,0,0,0.3)' }}>
-                                <span style={{ color: '#4ade80', fontWeight: 800, fontSize: isMobile ? '0.6rem' : '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>LAP</span>
-                                <span style={{ fontFamily: 'monospace', fontSize: isMobile ? '1.2rem' : '1.75rem', fontWeight: 900 }}>{stats.lap}/{stats.totalLaps}</span>
-                            </div>
+                        {/* Right Controls (Action) */}
+                        <div style={{ display: 'flex', gap: isMobile ? '0.4rem' : '1.5rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
+                            {/* Brake Button */}
+                            <button
+                                style={{
+                                    width: isMobile ? '3.5rem' : '5rem', height: isMobile ? '3.5rem' : '5rem',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                    backdropFilter: 'blur(20px)',
+                                    borderRadius: isMobile ? '1rem' : '1.5rem',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', outline: 'none',
+                                }}
+                                onTouchStart={(e) => { e.preventDefault(); state.current.keySlower = true; }}
+                                onTouchEnd={(e) => { e.preventDefault(); state.current.keySlower = false; }}
+                            >
+                                <div style={{ width: isMobile ? '14px' : '20px', height: isMobile ? '14px' : '20px', backgroundColor: 'rgba(255, 255, 255, 0.4)', borderRadius: '4px' }} />
+                            </button>
+
+                            {/* Gas Button (GO) */}
+                            <button
+                                style={{
+                                    width: isMobile ? '5rem' : '8rem', height: isMobile ? '5.5rem' : '8rem',
+                                    background: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+                                    backdropFilter: 'blur(24px)',
+                                    borderRadius: isMobile ? '1.5rem' : '2.5rem',
+                                    border: 'none',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', outline: 'none',
+                                    boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
+                                    position: 'relative',
+                                    overflow: 'hidden'
+                                }}
+                                onTouchStart={(e) => { e.preventDefault(); state.current.keyFaster = true; }}
+                                onTouchEnd={(e) => { e.preventDefault(); state.current.keyFaster = false; }}
+                            >
+                                <span style={{ fontSize: isMobile ? '1.25rem' : '1.75rem', fontWeight: 900, color: 'white' }}>GO</span>
+                            </button>
+
+                            {/* Boost Button (NOS) */}
+                            <button
+                                style={{
+                                    width: isMobile ? '4rem' : '6rem', height: isMobile ? '4.5rem' : '6rem',
+                                    background: 'linear-gradient(135deg, #ef4444 0%, #7f1d1d 100%)',
+                                    backdropFilter: 'blur(24px)',
+                                    borderRadius: isMobile ? '1.25rem' : '2rem',
+                                    border: 'none',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', outline: 'none',
+                                    boxShadow: '0 12px 40px rgba(239, 68, 68, 0.4)',
+                                }}
+                                onTouchStart={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
+                                onTouchEnd={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
+                            >
+                                <span style={{ fontSize: isMobile ? '0.9rem' : '1.25rem', fontWeight: 900, color: 'white' }}>NOS</span>
+                            </button>
                         </div>
                     </div>
-
-                    {/* Moto GP Style Mini Map - Hidden slightly smaller on very small mobile */}
-                    {!isMobile && (
-                        <div style={{ position: 'relative', pointerEvents: 'auto' }}>
-                            <div style={{ position: 'absolute', inset: '-0.75rem', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 75%)', filter: 'blur(25px)' }} />
-                            <div style={{ position: 'relative', padding: '0.5rem', backgroundColor: 'rgba(5, 10, 20, 0.85)', backdropFilter: 'blur(40px)', borderRadius: '3.5rem', border: '2px solid rgba(255, 255, 255, 0.2)', boxShadow: '0 30px 60px -15px rgba(0, 0, 0, 0.8)', overflow: 'hidden' }}>
-                                <canvas
-                                    ref={miniMapRef}
-                                    style={{ borderRadius: '3rem', display: 'block' }}
-                                />
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '0.75rem 0', textAlign: 'center', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                    <span style={{ fontSize: '10px', fontWeight: 900, letterSpacing: '0.5em', color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', fontStyle: 'italic' }}>Live Circuit Data</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
+            )}
 
-                {/* Footer: Mobile Controls - Enhanced and Simplified */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '100%', pointerEvents: 'none', paddingBottom: isMobile ? '1rem' : '0' }}>
-                    <div style={{ display: 'flex', gap: isMobile ? '0.75rem' : '1.5rem', pointerEvents: 'auto' }}>
-                        <button
-                            style={{
-                                width: isMobile ? '3.5rem' : '5.5rem', height: isMobile ? '3.5rem' : '5.5rem',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                backdropFilter: 'blur(16px)',
-                                borderRadius: isMobile ? '1rem' : '1.75rem',
-                                border: '2px solid rgba(255, 255, 255, 0.1)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: 'pointer', outline: 'none',
-                                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                                transition: 'all 0.2s'
-                            }}
-                            onTouchStart={() => state.current.keyLeft = true}
-                            onTouchEnd={() => state.current.keyLeft = false}
-                        >
-                            <div style={{ width: '0', height: '0', borderTop: `${isMobile ? 10 : 15}px solid transparent`, borderBottom: `${isMobile ? 10 : 15}px solid transparent`, borderRight: `${isMobile ? 15 : 22}px solid white` }} />
-                        </button>
-                        <button
-                            style={{
-                                width: isMobile ? '3.5rem' : '5.5rem', height: isMobile ? '3.5rem' : '5.5rem',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                backdropFilter: 'blur(16px)',
-                                borderRadius: isMobile ? '1rem' : '1.75rem',
-                                border: '2px solid rgba(255, 255, 255, 0.1)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: 'pointer', outline: 'none',
-                                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                                transition: 'all 0.2s'
-                            }}
-                            onTouchStart={() => state.current.keyRight = true}
-                            onTouchEnd={() => state.current.keyRight = false}
-                        >
-                            <div style={{ width: '0', height: '0', borderTop: `${isMobile ? 10 : 15}px solid transparent`, borderBottom: `${isMobile ? 10 : 15}px solid transparent`, borderLeft: `${isMobile ? 15 : 22}px solid white` }} />
-                        </button>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '1rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
-                        {/* Brake Button */}
-                        <button
-                            style={{
-                                width: isMobile ? '3rem' : '5rem', height: isMobile ? '3rem' : '5rem',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                backdropFilter: 'blur(16px)',
-                                borderRadius: isMobile ? '0.75rem' : '1.5rem',
-                                border: '2px solid rgba(255, 255, 255, 0.1)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: 'pointer', outline: 'none',
-                                transition: 'all 0.2s'
-                            }}
-                            onTouchStart={() => state.current.keySlower = true}
-                            onTouchEnd={() => state.current.keySlower = false}
-                        >
-                            <div style={{ width: isMobile ? '12px' : '20px', height: isMobile ? '12px' : '20px', backgroundColor: 'rgba(255, 255, 255, 0.4)', borderRadius: '4px' }} />
-                        </button>
-
-                        {/* Gas Button */}
-                        <button
-                            style={{
-                                width: isMobile ? '5.5rem' : '8rem', height: isMobile ? '5.5rem' : '8rem',
-                                background: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
-                                backdropFilter: 'blur(24px)',
-                                borderRadius: isMobile ? '1.5rem' : '2.5rem',
-                                border: 'none',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: 'pointer', outline: 'none',
-                                boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
-                                position: 'relative',
-                                overflow: 'hidden'
-                            }}
-                            onTouchStart={() => state.current.keyFaster = true}
-                            onTouchEnd={() => state.current.keyFaster = false}
-                        >
-                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent)', animation: 'shimmer 3s infinite' }} />
-                            <span style={{ fontSize: isMobile ? '1.25rem' : '1.75rem', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>GO</span>
-                        </button>
-
-                        {/* Boost Button */}
-                        <button
-                            style={{
-                                width: isMobile ? '4rem' : '6rem', height: isMobile ? '4rem' : '6rem',
-                                background: 'linear-gradient(135deg, #ef4444 0%, #7f1d1d 100%)',
-                                backdropFilter: 'blur(24px)',
-                                borderRadius: isMobile ? '1.25rem' : '2rem',
-                                border: 'none',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: 'pointer', outline: 'none',
-                                boxShadow: '0 12px 40px rgba(239, 68, 68, 0.4)',
-                                position: 'relative',
-                                overflow: 'hidden'
-                            }}
-                            onTouchStart={() => state.current.keyBoost = true}
-                            onTouchEnd={() => state.current.keyBoost = false}
-                        >
-                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent)', animation: 'shimmer 2s infinite' }} />
-                            <span style={{ fontSize: isMobile ? '0.9rem' : '1.25rem', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>NOS</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <style jsx global>{`
+                @keyframes countdown-scale {
+                    0% { transform: scale(0.8); opacity: 0; }
+                    50% { transform: scale(1.1); opacity: 1; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+            `}</style>
 
             {/* Countdown Overlay */}
-            {gameState === 'countdown' && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.8)', backdropFilter: 'blur(12px)', color: 'white', fontFamily: 'sans-serif' }}>
+            {mounted && gameState === 'countdown' && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.4)', backdropFilter: 'blur(32px)', color: 'white', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
                     <div style={{ position: 'relative' }}>
-                        <div style={{ position: 'absolute', inset: '-8rem', background: 'radial-gradient(circle, rgba(37, 99, 235, 0.2) 0%, transparent 70%)', filter: 'blur(120px)', borderRadius: '9999px' }} />
-                        <div style={{ fontSize: '20rem', fontWeight: 900, fontStyle: 'italic', color: 'transparent', background: 'linear-gradient(to bottom, #fff, rgba(255, 255, 255, 0.1))', WebkitBackgroundClip: 'text', lineHeight: 1, filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.5))' }}>
+                        <div style={{ position: 'absolute', inset: '-10rem', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%)', filter: 'blur(150px)', borderRadius: '9999px' }} />
+                        <div style={{
+                            fontSize: '25rem',
+                            fontWeight: 900,
+                            fontStyle: 'italic',
+                            color: 'white',
+                            textShadow: '0 0 40px rgba(255, 255, 255, 0.8), 0 10px 100px rgba(59, 130, 246, 0.6)',
+                            lineHeight: 1,
+                            animation: 'countdown-scale 1s infinite cubic-bezier(0.18, 0.89, 0.32, 1.28)'
+                        }}>
                             {countdown > 0 ? countdown : 'GO'}
                         </div>
                     </div>
@@ -1409,30 +1535,30 @@ export default function GameSpeedPage() {
             )}
 
             {/* Victory Overlay */}
-            {gameState === 'finished' && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(40px)', color: 'white', fontFamily: 'sans-serif' }}>
-                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '4rem', borderRadius: '4rem', border: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', maxWidth: '36rem', width: '100%' }}>
-                        <div style={{ fontSize: '8rem', marginBottom: '2rem' }}>🏆</div>
-                        <h1 style={{ fontSize: '4.5rem', fontWeight: 900, marginBottom: '0.75rem', background: 'linear-gradient(to r, #fcd34d, #fb923c, #ef4444)', WebkitBackgroundClip: 'text', color: 'transparent' }}>VICTORY!</h1>
-                        <p style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4em', marginBottom: '3rem' }}>Race Completed</p>
+            {mounted && gameState === 'finished' && ( // Conditionally render the victory overlay
+                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.4)', backdropFilter: 'blur(40px)', color: 'white', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '4rem', borderRadius: '4rem', border: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center', boxShadow: '0 25px 80px rgba(0, 0, 0, 0.9), inset 0 0 40px rgba(255,255,255,0.02)', maxWidth: '36rem', width: '90%' }}>
+                        <div style={{ fontSize: '8rem', marginBottom: '1rem', filter: 'drop-shadow(0 0 20px rgba(251, 191, 36, 0.4))' }}>🏆</div>
+                        <h1 style={{ fontSize: '5rem', fontWeight: 900, fontStyle: 'italic', marginBottom: '0.25rem', background: 'linear-gradient(to bottom, #fff, #fbbf24)', WebkitBackgroundClip: 'text', color: 'transparent', textShadow: '0 10px 30px rgba(251, 191, 36, 0.3)' }}>VICTORY!</h1>
+                        <p style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.6em', marginBottom: '3.5rem', fontSize: '0.75rem' }}>Race Completed Successfully</p>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
-                            <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', padding: '2rem', borderRadius: '2rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.2)', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Total Score</div>
-                                <div style={{ fontSize: '2.25rem', fontFamily: 'monospace', color: '#fbbf24' }}>1000</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginBottom: '3.5rem' }}>
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '2rem', borderRadius: '2rem', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: 'inset 0 0 15px rgba(251, 191, 36, 0.05)' }}>
+                                <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.3)', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.2em', marginBottom: '0.5rem' }}>Points Earned</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#fbbf24', fontStyle: 'italic', textShadow: '0 0 15px rgba(251, 191, 36, 0.4)' }}>1,000</div>
                             </div>
-                            <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', padding: '2rem', borderRadius: '2rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.2)', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Race Time</div>
-                                <div style={{ fontSize: '2.25rem', fontFamily: 'monospace', color: '#60a5fa' }}>01:24</div>
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '2rem', borderRadius: '2rem', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: 'inset 0 0 15px rgba(59, 130, 246, 0.05)' }}>
+                                <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.3)', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.2em', marginBottom: '0.5rem' }}>Final Time</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#60a5fa', fontStyle: 'italic', textShadow: '0 0 15px rgba(96, 165, 250, 0.4)' }}>01:24</div>
                             </div>
                         </div>
 
                         <button
                             onClick={endGame}
-                            style={{ width: '100%', padding: '1.5rem 0', backgroundColor: 'white', color: 'black', borderRadius: '2rem', fontWeight: 900, fontSize: '1.5rem', cursor: 'pointer', border: 'none', boxShadow: '0 0 60px rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', outline: 'none' }}
+                            style={{ width: '100%', padding: '1.5rem 0', background: 'linear-gradient(135deg, #fff 0%, #e2e8f0 100%)', color: '#000', borderRadius: '2rem', fontWeight: 900, fontSize: '1.5rem', cursor: 'pointer', border: 'none', boxShadow: '0 0 40px rgba(255, 255, 255, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', outline: 'none', transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
                         >
-                            <span>CONTINUE</span>
-                            <span style={{ fontSize: '1.25rem' }}>→</span>
+                            <span style={{ letterSpacing: '0.1em' }}>CONTINUE</span>
+                            <span style={{ fontSize: '1.5rem' }}>→</span>
                         </button>
                     </div>
                 </div>
