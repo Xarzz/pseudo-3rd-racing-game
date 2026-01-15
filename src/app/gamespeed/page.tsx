@@ -48,6 +48,7 @@ interface Point {
 interface Sprite {
     source: any;
     offset: number;
+    offsetY?: number;
 }
 
 interface Car {
@@ -172,13 +173,27 @@ export default function GameSpeedPage() {
                 { name: 'npc_car', src: '/assets/vehicles/car_ai_blue.jpg' },
                 { name: 'construction', src: '/assets/obstacles/construction_barrier.png' },
                 { name: 'traffic_light', src: '/assets/material/lampulalulintas.png' },
-                { name: 'kaffe1', src: '/assets/material/kaffe1.png' },
-                { name: 'restoran1', src: '/assets/material/restoran1png.png' },
-                { name: 'seven_eleven', src: '/assets/material/7-11.png' },
                 { name: 'car_rival', src: '/assets/vehicles/foward-opponent.png' },
                 { name: 'truck1', src: '/assets/vehicles/truck1.png' },
                 { name: 'truck2', src: '/assets/vehicles/truck2.png' },
                 { name: 'car_1st', src: '/assets/vehicles/1rd-pov/1rd-sonic-foward-v2.png' },
+                // Assets Kiri Jalan
+                { name: 'kiri_basmallah', src: '/assets/material/kiri_jalan/1basmallah.png' },
+                { name: 'kiri_burger', src: '/assets/material/kiri_jalan/1burger.png' },
+                { name: 'kiri_game', src: '/assets/material/kiri_jalan/1gameforsmart.png' },
+                { name: 'kiri_motel', src: '/assets/material/kiri_jalan/1motel.png' },
+                { name: 'kiri_ramen', src: '/assets/material/kiri_jalan/1ramen.png' },
+                { name: 'kiri_gudang', src: '/assets/material/kiri_jalan/2gudang.png' },
+                { name: 'kiri_motel2', src: '/assets/material/kiri_jalan/2motel.png' },
+                { name: 'kiri_restoran', src: '/assets/material/kiri_jalan/restoran1png.png' },
+                // Assets Kanan Jalan
+                { name: 'kanan_bank', src: '/assets/material/kanan_jalan/1bank.png' },
+                { name: 'kanan_gudang', src: '/assets/material/kanan_jalan/1gudang.png' },
+                { name: 'kanan_kelontong', src: '/assets/material/kanan_jalan/1tokokelontong.png' },
+                { name: 'kanan_basmallah', src: '/assets/material/kanan_jalan/2basmallah.png' },
+                { name: 'kanan_burger', src: '/assets/material/kanan_jalan/2burger.png' },
+                { name: 'kanan_motel', src: '/assets/material/kanan_jalan/3motel.png' },
+                { name: 'kanan_kaffe', src: '/assets/material/kanan_jalan/kaffe1.png' },
                 // Starting Sequence - Revving Animation
                 { name: 'start_1', src: '/assets/vehicles/start/1.png' },
                 { name: 'start_2', src: '/assets/vehicles/start/2.png' },
@@ -330,10 +345,36 @@ export default function GameSpeedPage() {
         addStraight(ROAD_CONF.LENGTH.SHORT);
         addDownhillToEnd(200);
 
+        // --- NFS STYLE CITY POPULATION ---
         const len = state.current.segments.length;
-        state.current.cars = [];
+        const leftAssetPool = ['kiri_basmallah', 'kiri_burger', 'kiri_game', 'kiri_motel', 'kiri_ramen', 'kiri_gudang', 'kiri_motel2', 'kiri_restoran'];
+        const rightAssetPool = ['kanan_bank', 'kanan_gudang', 'kanan_kelontong', 'kanan_basmallah', 'kanan_burger', 'kanan_motel', 'kanan_kaffe'];
+
+        for (let n = 20; n < len - 100; n += 25) {
+            // Pick assets from specific pools based on side
+            const leftAsset = Util.randomChoice(leftAssetPool);
+            const rightAsset = Util.randomChoice(rightAssetPool);
+
+            const leftSprite = state.current.sprites[leftAsset];
+            const rightSprite = state.current.sprites[rightAsset];
+
+            if (leftSprite) state.current.segments[n].sprites.push({ source: leftSprite, offset: -2.2, offsetY: -1 });
+            if (rightSprite) state.current.segments[n].sprites.push({ source: rightSprite, offset: 2.2, offsetY: -1 });
+
+            // Add Zebra Cross & Traffic Lights occasionally
+            if (n % 800 === 0) {
+                for (let j = 0; j < 12; j++) {
+                    if (state.current.segments[n + j]) state.current.segments[n + j].zebra = true;
+                }
+                const lightSeg = state.current.segments[n];
+                if (lightSeg) lightSeg.sprites.push({ source: state.current.sprites.traffic_light, offset: -1.8 });
+            }
+        }
+
+        state.current.trackLength = len * SEGMENT_LENGTH;
 
         // Initial NPCs Spawning (Now using Trucks)
+        state.current.cars = [];
         for (let n = 0; n < 20; n++) {
             const z = (n + 1) * (len * SEGMENT_LENGTH / 20);
             const offset = Util.randomChoice([-0.8, -0.4, 0.4, 0.8]);
@@ -360,36 +401,6 @@ export default function GameSpeedPage() {
         };
         state.current.cars.push(rivalCar);
         findSegment(rivalCar.z).cars.push(rivalCar);
-
-        // Static Obstacles, Zebra Cross & Traffic Lights
-        for (let n = 100; n < len - 100; n += 50) {
-            const rand = Math.random();
-            const zebraFreq = 1000;
-
-            if (n % zebraFreq === 0) {
-                // Zebra Cross
-                for (let j = 0; j < 10; j++) {
-                    if (state.current.segments[n + j]) {
-                        state.current.segments[n + j].zebra = true;
-                    }
-                }
-                const lightSeg = state.current.segments[n];
-                if (lightSeg) {
-                    lightSeg.sprites.push({ source: state.current.sprites.traffic_light, offset: -1.8 });
-                }
-            } else if (rand > 0.4) {
-                const offset = Math.random() > 0.5 ? 1.8 : -1.8;
-                let source;
-                if (offset < 0) {
-                    source = Math.random() > 0.5 ? state.current.sprites.kaffe1 : state.current.sprites.restoran1;
-                } else {
-                    source = state.current.sprites.seven_eleven;
-                }
-                if (source) {
-                    state.current.segments[n].sprites.push({ source, offset });
-                }
-            }
-        }
 
         // Color start and finish
         const playerSegIdx = findSegment(state.current.playerZ).index;
@@ -536,12 +547,18 @@ export default function GameSpeedPage() {
 
         const name = (sprite as any).assetName;
 
-        // Optimized scaling - more stable proportions
-        let worldWidth = 400; // Default cars (reduced for stability)
-        if (name === 'traffic_light') worldWidth = 500;
-        else if (name === 'truck1' || name === 'truck2') worldWidth = 600; // Trucks slightly bigger
-        else if (name === 'car_rival' || name === 'foward-opponent') worldWidth = 450; // Rival car
-        else if (name === 'kaffe1' || name === 'restoran1' || name === 'seven_eleven') worldWidth = 3000; // Buildings
+        // Menghitung worldWidth secara dinamis berdasarkan ukuran sprite mobil pemain
+        // Rasio 1.5625 memastikan NPC mobil berukuran sama dengan mobil pemain pada jarak yang sama
+        const baseCar = state.current.sprites.car;
+        const playerRefWidth = baseCar ? baseCar.width : 300;
+        const carWorldWidth = playerRefWidth * 1.5625;
+
+        let worldWidth = carWorldWidth; // NPC mobil standar
+        if (name === 'traffic_light') worldWidth = carWorldWidth * 1.2;
+        else if (name === 'truck1' || name === 'truck2') worldWidth = carWorldWidth * 2.2; // Truk jauh lebih besar
+        else if (name === 'car_rival' || name === 'foward-opponent') worldWidth = carWorldWidth; // Rival sama dengan player
+        else if (name?.includes('kiri_') || name?.includes('kanan_')) worldWidth = carWorldWidth * 12; // Bangunan sangat besar
+        else if (name === 'obstacle' || name === 'construction') worldWidth = carWorldWidth * 0.7; // Objek jalanan kecil
 
         const destW = scale * worldWidth * (width / 2);
         const destH = destW * (sprite.height / sprite.width);
@@ -587,13 +604,15 @@ export default function GameSpeedPage() {
 
         // --- 3rd Person POV ---
 
-        // Starting Sequence - Revving Animation saat Countdown
+        // Starting Sequence - Revving Animation saat Countdown & Preparation
+        const isPreparing = gameState === 'preparation';
         const isCountdown = gameState === 'countdown';
+        const isAtStart = isPreparing || isCountdown;
 
-        // Update revving animation timer
-        if (isCountdown && keyFaster) {
+        // Update revving animation timer - Only play when gas is pressed at start
+        if (isAtStart && keyFaster) {
             state.current.revvingTimer += 16; // ~60fps
-            if (state.current.revvingTimer >= 100) { // Toggle setiap 100ms untuk efek greng-greng
+            if (state.current.revvingTimer >= 80) { // Fast toggle for revving effect
                 state.current.revvingTimer = 0;
                 state.current.revvingFrame = state.current.revvingFrame === 0 ? 1 : 0;
             }
@@ -602,8 +621,8 @@ export default function GameSpeedPage() {
         let sprite = sprites.car;
 
         // Pilih sprite berdasarkan kondisi
-        if (isCountdown && keyFaster) {
-            // Saat countdown dan user tekan gas, tampilkan animasi revving
+        if (isAtStart && keyFaster) {
+            // Tampilkan animasi revving hanya saat menekan gas di awal
             sprite = state.current.revvingFrame === 0 ? sprites.start_1 : sprites.start_2;
         } else if (keyLeft) {
             sprite = sprites.car_diag_left || sprites.car;
@@ -697,9 +716,9 @@ export default function GameSpeedPage() {
         // Tentukan ukuran berdasarkan jenis sprite
         let finalW, finalH;
 
-        if (currentNosSprite || (isCountdown && keyFaster)) {
+        if (currentNosSprite || (isAtStart && keyFaster)) {
             // Untuk sprite NOS dan START animation (revving), gunakan ukuran tetap dari base car 
-            // agar transisi animasi tetap stabil dan tidak berubah ukuran
+            // agar transisi animasi tetap stabil dan tidak berubah ukuran (nyambung dengan foward-sonic)
             finalW = baseW;
             finalH = baseH;
         } else {
@@ -713,6 +732,47 @@ export default function GameSpeedPage() {
 
         // Render sprite apa adanya tanpa tilt - gambar sudah memiliki posisi miring sendiri
         ctx.drawImage(finalSprite, finalX, finalY, finalW, finalH);
+
+        // --- Brake Lights Animation (Procedural) ---
+        if (state.current.keySlower && viewMode === 'third') {
+            ctx.save();
+            const lightSize = finalW * 0.12;
+            const lightY = finalY + finalH * 0.75; // Position at the rear bottom
+            const lightOffset = finalW * 0.3; // Distance from center
+
+            // Common glow style
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ff0000';
+            ctx.fillStyle = '#ff4444';
+
+            // Left Light
+            ctx.beginPath();
+            ctx.arc(finalX + finalW / 2 - lightOffset, lightY, lightSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Right Light
+            ctx.beginPath();
+            ctx.arc(finalX + finalW / 2 + lightOffset, lightY, lightSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Extra flair: Red ground glow
+            const grd = ctx.createRadialGradient(finalX + finalW / 2, finalY + finalH, 0, finalX + finalW / 2, finalY + finalH, finalW);
+            grd.addColorStop(0, 'rgba(255, 0, 0, 0.3)');
+            grd.addColorStop(1, 'rgba(255, 0, 0, 0)');
+            ctx.fillStyle = grd;
+            ctx.fillRect(finalX - finalW, finalY + finalH - 20, finalW * 3, 60);
+
+            ctx.restore();
+        } else if (state.current.keySlower && viewMode === 'first') {
+            // Dashboard red glow for 1st person
+            ctx.save();
+            const grd = ctx.createLinearGradient(0, height, 0, height - 150);
+            grd.addColorStop(0, 'rgba(255, 0, 0, 0.4)');
+            grd.addColorStop(1, 'rgba(255, 0, 0, 0)');
+            ctx.fillStyle = grd;
+            ctx.fillRect(0, height - 150, width, 150);
+            ctx.restore();
+        }
     };
 
     // --- Core Updates ---
@@ -806,16 +866,16 @@ export default function GameSpeedPage() {
         state.current.playerX = nextPlayerX;
         state.current.speed = nextSpeed;
 
-        // Move NPCs
-        state.current.cars.forEach(car => {
+        // Update NPC Cars
+        for (let n = 0; n < state.current.cars.length; n++) {
+            const car = state.current.cars[n];
             const oldSeg = findSegment(car.z);
             car.z = Util.increase(car.z, dt * car.speed, trackLength);
             car.percent = Util.percentRemaining(car.z, SEGMENT_LENGTH);
             const newSeg = findSegment(car.z);
-
             if (oldSeg !== newSeg) {
-                const index = oldSeg.cars.indexOf(car);
-                if (index !== -1) oldSeg.cars.splice(index, 1);
+                const idx = oldSeg.cars.indexOf(car);
+                if (idx !== -1) oldSeg.cars.splice(idx, 1);
                 newSeg.cars.push(car);
             }
 
@@ -833,7 +893,17 @@ export default function GameSpeedPage() {
             if (car.z < position && (position - car.z) > trackLength / 2) {
                 car.z = Util.increase(car.z, trackLength, trackLength);
             }
-        });
+        }
+
+        // --- PARALLAX BACKGROUND UPDATE ---
+        // We move the background offset here so it's time-based and synced with speed
+        state.current.bgOffset = state.current.bgOffset || 0;
+        // playerSegment is already defined above
+        const curveFactor = (playerSegment.curve || 0) * (speed / MAX_SPEED);
+        const steerFactor = (state.current.keyLeft ? -1 : state.current.keyRight ? 1 : 0) * (speed / MAX_SPEED) * 2;
+
+        // Update offset based on dt (time) for smooth movement across frame rates
+        state.current.bgOffset += (curveFactor + steerFactor) * dt * 0.1;
 
         // Use the updated position and speed
         state.current.position = position;
@@ -853,9 +923,9 @@ export default function GameSpeedPage() {
 
         // HUD update
         setStats({
-            speed: Math.floor((speed / MAX_SPEED) * 200),
-            nos: Math.floor(nextNos),
-            lap: state.current.currentLap,
+            speed: Math.floor(speed / 100),
+            nos: Math.floor(state.current.nos),
+            lap: Math.floor(position / trackLength) + 1,
             totalLaps: state.current.totalLaps
         });
 
@@ -910,10 +980,8 @@ export default function GameSpeedPage() {
             const scaledW = bgW * layerScale;
             const scaledH = bgH * layerScale;
 
-            // 2. Target shift logic
-            const targetShift = (playerSegment.curve * 1.5) + (playerX * 0.05);
+            // 2. Parallax Positioning (Offset calculated in update())
             state.current.bgOffset = state.current.bgOffset || 0;
-            state.current.bgOffset = state.current.bgOffset + (targetShift - state.current.bgOffset) * 0.1;
 
             // 3. Dynamic Clamping to prevent black bars
             const maxOverflowX = (scaledW - width) / 2;
@@ -972,7 +1040,7 @@ export default function GameSpeedPage() {
                 const spriteX = segment.p1.screen.x + (spriteScale * sprite.offset * ROAD_WIDTH * width / 2);
                 const spriteY = segment.p1.screen.y;
                 if (segment.p1.screen.scale > 0.00001) {
-                    renderSprite(ctx, width, height, height / 480, ROAD_WIDTH, sprite.source, spriteScale, spriteX, spriteY, (sprite.offset < 0 ? -1 : 0), -1, segment.clip);
+                    renderSprite(ctx, width, height, height / 480, ROAD_WIDTH, sprite.source, spriteScale, spriteX, spriteY, (sprite.offset < 0 ? -1 : 0), (sprite.offsetY || -1), segment.clip);
                 }
             }
 
@@ -1003,26 +1071,33 @@ export default function GameSpeedPage() {
                 (state.current.keyLeft ? -1 : state.current.keyRight ? 1 : 0),
                 0, 'first');
         }
+
+        // Speed Effects (Calculated in CSS Filter for performance)
     };
 
     // --- Effects ---
+    // --- Manual Road Init (Consistent once built) ---
+    useEffect(() => {
+        if (assetsLoaded && state.current.segments.length === 0) {
+            resetRoad();
+        }
+    }, [assetsLoaded]);
+
     useEffect(() => {
         setMounted(true);
         if (!assetsLoaded) return;
 
         state.current.playerZ = (CAMERA_HEIGHT * state.current.cameraDepth);
-        resetRoad();
 
         // Start game loop
         let lastTime = performance.now();
         let miniMapUpdateTime = 0;
 
         const loop = (time: number) => {
-            if (gameState === 'playing') {
+            if (gameState === 'playing' || gameState === 'countdown') {
                 const dt = Math.min(1, (time - lastTime) / 1000);
                 update(dt);
             }
-
             render();
 
             // Update mini map at 10 FPS
@@ -1040,7 +1115,7 @@ export default function GameSpeedPage() {
         return () => {
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         };
-    }, [assetsLoaded, gameState]);
+    }, [assetsLoaded, gameState === 'playing']); // Only re-run if playing state changes meaningfully for loop
 
     // Countdown logic
     useEffect(() => {
@@ -1074,7 +1149,7 @@ export default function GameSpeedPage() {
                 case 'arrowright': case 'd': state.current.keyRight = true; break;
                 case 'arrowup': case 'w': state.current.keyFaster = true; break;
                 case 'arrowdown': case 's': state.current.keySlower = true; break;
-                case ' ': state.current.keyBoost = true; break;
+                case ' ': e.preventDefault(); state.current.keyBoost = true; break;
                 case 't': togglePOV(); break;
             }
         };
@@ -1084,7 +1159,7 @@ export default function GameSpeedPage() {
                 case 'arrowright': case 'd': state.current.keyRight = false; break;
                 case 'arrowup': case 'w': state.current.keyFaster = false; break;
                 case 'arrowdown': case 's': state.current.keySlower = false; break;
-                case ' ': state.current.keyBoost = false; break;
+                case ' ': e.preventDefault(); state.current.keyBoost = false; break;
             }
         };
 
@@ -1120,36 +1195,39 @@ export default function GameSpeedPage() {
 
         // DPR Scaling
         const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-        const logicalSize = 220; // Slightly larger for Moto GP feel
-        const padding = 50;
+        const logicalW = 240; // Wider for side labels
+        const logicalH = 180;
+        const padding = 40;
 
-        if (canvas.width !== logicalSize * dpr) {
-            canvas.width = logicalSize * dpr;
-            canvas.height = logicalSize * dpr;
-            canvas.style.width = `${logicalSize}px`;
-            canvas.style.height = `${logicalSize}px`;
+        if (canvas.width !== logicalW * dpr || canvas.height !== logicalH * dpr) {
+            canvas.width = logicalW * dpr;
+            canvas.height = logicalH * dpr;
+            canvas.style.width = `${logicalW}px`;
+            canvas.style.height = `${logicalH}px`;
         }
 
         ctx.save();
         ctx.scale(dpr, dpr);
-        ctx.clearRect(0, 0, logicalSize, logicalSize);
+        ctx.clearRect(0, 0, logicalW, logicalH);
 
         // 1. Pro Racing Background (Dark Matte)
         ctx.fillStyle = 'rgba(10, 15, 25, 0.98)';
         ctx.beginPath();
         if ((ctx as any).roundRect) {
-            (ctx as any).roundRect(0, 0, logicalSize, logicalSize, 30);
+            (ctx as any).roundRect(0, 0, logicalW, logicalH, 20);
         } else {
-            ctx.rect(0, 0, logicalSize, logicalSize);
+            ctx.rect(0, 0, logicalW, logicalH);
         }
         ctx.fill();
 
         // Subtle Grid Background
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
         ctx.lineWidth = 1;
-        for (let i = 0; i < logicalSize; i += 20) {
-            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, logicalSize); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(logicalSize, i); ctx.stroke();
+        for (let i = 0; i < logicalW; i += 20) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, logicalH); ctx.stroke();
+        }
+        for (let i = 0; i < logicalH; i += 20) {
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(logicalW, i); ctx.stroke();
         }
 
         // Perimeter Glow
@@ -1186,10 +1264,10 @@ export default function GameSpeedPage() {
 
         const trackW = maxX - minX || 1;
         const trackH = maxZ - minZ || 1;
-        const scale = Math.min((logicalSize - padding * 2) / trackW, (logicalSize - padding * 2) / trackH);
+        const scale = Math.min((logicalW - padding * 2) / trackW, (logicalH - padding * 2) / trackH);
 
-        const tx = (px: number) => logicalSize / 2 + (px - (minX + maxX) / 2) * scale;
-        const ty = (pz: number) => logicalSize / 2 + (pz - (minZ + maxZ) / 2) * scale;
+        const tx = (px: number) => logicalW / 2 + (px - (minX + maxX) / 2) * scale;
+        const ty = (pz: number) => logicalH / 2 + (pz - (minZ + maxZ) / 2) * scale;
 
         // 3. Draw Track Base (The "Asphalt")
         ctx.beginPath();
@@ -1234,11 +1312,17 @@ export default function GameSpeedPage() {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Text Labels for Start/Finish
+        // Text Labels for Start/Finish - Moved to the sides to keep the track clear
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillText('START', tx(startP.x) + 15, ty(startP.z) + 5);
-        ctx.fillText('FINISH', tx(endP.x) + 20, ty(endP.z) + 5);
+        ctx.font = '900 9px sans-serif';
+
+        // START on the left side of the point
+        ctx.textAlign = 'right';
+        ctx.fillText('START ', tx(startP.x) - 12, ty(startP.z) + 3);
+
+        // FINISH on the right side of the point
+        ctx.textAlign = 'left';
+        ctx.fillText(' FINISH', tx(endP.x) + 12, ty(endP.z) + 3);
 
         // 6. Player Position
         const playerIdx = Math.floor((position / trackLength) * points.length);
@@ -1299,8 +1383,10 @@ export default function GameSpeedPage() {
             inset: 0,
             backgroundColor: '#020617',
             overflow: 'hidden',
-            filter: (stats.speed > 150 ? `blur(${(stats.speed - 150) / 40}px) ` : '') + 'contrast(1.1) brightness(0.95) saturate(1.2)', // Color Grading
-            transition: 'filter 0.2s ease'
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            filter: (stats.speed > 150 ? `blur(${((stats.speed - 150) / 60) + (state.current.keyBoost && stats.nos > 0 ? 2 : 0)}px) ` : (state.current.keyBoost && stats.nos > 0 ? 'blur(2px) ' : '')) + 'contrast(1.05) brightness(1) saturate(1.1)', // Milder Lighter Blur
+            transition: 'filter 0.4s ease'
         }}>
             {/* Main Game Canvas */}
             <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
@@ -1324,20 +1410,36 @@ export default function GameSpeedPage() {
 
                     {/* Header: Stats & Map */}
                     <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'center' : 'start', width: '100%', gap: '1rem' }}>
-                        {/* Velocity & Points */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '0.5rem' : '1rem', width: isMobile ? '100%' : 'auto' }}>
-                            <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '1rem', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                                <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(20px)', padding: isMobile ? '0.75rem 1.25rem' : '1.5rem', borderRadius: isMobile ? '1.5rem' : '2.5rem', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 0 20px rgba(255,255,255,0.05)' }}>
-                                    <div style={{ fontSize: isMobile ? '8px' : '10px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.4em', fontWeight: 900, marginBottom: '0.25rem' }}>Telemetry / Speed</div>
-                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                        <span style={{ fontSize: isMobile ? '3rem' : '5rem', fontWeight: 900, fontFamily: 'var(--font-rajdhani), sans-serif', color: '#fff', fontStyle: 'italic', textShadow: '0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(37, 99, 235, 0.4)' }}>
+                        {/* Velocity & Points - Premium Glassmorphism */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: isMobile ? '100%' : 'auto' }}>
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                <div style={{
+                                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                                    backdropFilter: 'blur(15px)',
+                                    padding: isMobile ? '0.75rem 1rem' : '1.5rem 2.5rem',
+                                    borderRadius: isMobile ? '1.5rem' : '2rem',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                                    flex: isMobile ? 1 : 'none',
+                                    textAlign: isMobile ? 'center' : 'left'
+                                }}>
+                                    <div style={{ fontSize: isMobile ? '9px' : '10px', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3em', fontWeight: 900, marginBottom: '0.25rem' }}>Speedometer</div>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                        <span style={{
+                                            fontSize: isMobile ? '2.5rem' : '4.5rem',
+                                            fontWeight: 900,
+                                            fontFamily: 'var(--font-rajdhani)',
+                                            color: '#fff',
+                                            fontStyle: 'italic',
+                                            textShadow: '0 0 20px rgba(255,255,255,0.7), 0 0 40px rgba(59, 130, 246, 0.5)'
+                                        }}>
                                             {stats.speed}
                                         </span>
-                                        <span style={{ fontSize: isMobile ? '0.75rem' : '1.1rem', color: 'rgba(255, 255, 255, 0.4)', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'var(--font-rajdhani), sans-serif', fontStyle: 'italic' }}>KPH</span>
+                                        <span style={{ fontSize: isMobile ? '0.8rem' : '1rem', color: '#60a5fa', fontWeight: 800 }}>KPH</span>
                                     </div>
                                 </div>
 
-                                {/* POV Toggle Button */}
+                                {/* POV Toggle - User Friendly Mobile Optimization */}
                                 <button
                                     onClick={() => {
                                         const next = state.current.viewMode === 'first' ? 'third' : 'first';
@@ -1346,157 +1448,167 @@ export default function GameSpeedPage() {
                                     }}
                                     style={{
                                         pointerEvents: 'auto',
-                                        backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                                        backdropFilter: 'blur(12px)',
-                                        padding: isMobile ? '0.5rem' : '1rem',
-                                        borderRadius: isMobile ? '1rem' : '1.5rem',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        backgroundColor: 'rgba(59, 130, 246, 0.25)',
+                                        backdropFilter: 'blur(15px)',
+                                        width: isMobile ? '3.5rem' : '5rem',
+                                        height: isMobile ? '3.5rem' : '5rem',
+                                        borderRadius: '1.25rem',
+                                        border: '2px solid rgba(59, 130, 246, 0.5)',
                                         color: 'white',
                                         cursor: 'pointer',
                                         display: 'flex',
                                         flexDirection: 'column',
                                         alignItems: 'center',
-                                        gap: isMobile ? '0.1rem' : '0.25rem',
-                                        minWidth: isMobile ? '4rem' : '6rem'
+                                        justifyContent: 'center',
+                                        boxShadow: '0 10px 30px rgba(59, 130, 246, 0.3)',
+                                        transition: 'all 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
+                                        gap: '2px'
                                     }}
                                 >
-                                    <span style={{ fontSize: isMobile ? '1.25rem' : '1.5rem' }}>{viewMode === 'first' ? '🎥' : '👤'}</span>
-                                    <span style={{ fontSize: isMobile ? '7px' : '10px', fontWeight: 800, textTransform: 'uppercase' }}>{viewMode === 'first' ? '1st POV' : '3rd POV'}</span>
+                                    <span style={{ fontSize: isMobile ? '1.2rem' : '1.8rem', filter: 'drop-shadow(0 0 5px rgba(255,255,255,0.5))' }}>
+                                        {viewMode === 'first' ? '🎥' : '👤'}
+                                    </span>
+                                    {!isMobile && <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', opacity: 0.8 }}>POV (T)</span>}
                                 </button>
                             </div>
 
-                            <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '0.75rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                                <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(16px)', padding: isMobile ? '0.625rem 1.25rem' : '0.875rem 1.5rem', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '1rem' }}>
-                                    <span style={{ color: '#60a5fa', fontWeight: 800, fontSize: isMobile ? '0.6rem' : '0.75rem', textTransform: 'uppercase', letterSpacing: '0.2em', fontFamily: 'var(--font-rajdhani)' }}>NOS</span>
-                                    <div style={{ width: isMobile ? '60px' : '100px', height: isMobile ? '6px' : '8px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', position: 'relative', boxShadow: 'inset 0 0 5px rgba(0,0,0,0.5)' }}>
-                                        <div style={{ width: `${stats.nos}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6, #60a5fa)', boxShadow: '0 0 15px rgba(59, 130, 246, 0.8)', transition: 'width 0.1s linear' }} />
+                            <div style={{ display: 'flex', gap: '0.5rem', width: isMobile ? '100%' : 'auto' }}>
+                                <div style={{
+                                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                                    backdropFilter: 'blur(15px)',
+                                    padding: '0.6rem 1rem',
+                                    borderRadius: '1.25rem',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.75rem',
+                                    flex: isMobile ? 1 : 'none'
+                                }}>
+                                    <span style={{ color: '#60a5fa', fontWeight: 900, fontSize: '0.7rem' }}>NOS</span>
+                                    <div style={{ flex: 1, minWidth: isMobile ? '40px' : '80px', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{ width: `${stats.nos}%`, height: '100%', backgroundColor: '#3b82f6', boxShadow: '0 0 10px #3b82f6' }} />
                                     </div>
-                                    <span style={{ fontFamily: 'var(--font-rajdhani)', fontSize: isMobile ? '0.9rem' : '1.25rem', fontWeight: 800, color: '#60a5fa', textShadow: '0 0 10px rgba(96, 165, 250, 0.5)' }}>{stats.nos}%</span>
                                 </div>
-                                <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(16px)', padding: isMobile ? '0.625rem 1.25rem' : '0.875rem 1.5rem', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <span style={{ color: '#4ade80', fontWeight: 800, fontSize: isMobile ? '0.6rem' : '0.75rem', textTransform: 'uppercase', letterSpacing: '0.2em', fontFamily: 'var(--font-rajdhani)' }}>LAP</span>
-                                    <span style={{ fontFamily: 'var(--font-rajdhani)', fontSize: isMobile ? '1.25rem' : '1.75rem', fontWeight: 800, fontStyle: 'italic', textShadow: '0 0 10px rgba(74, 222, 128, 0.5)' }}>{stats.lap} / {stats.totalLaps}</span>
+                                <div style={{
+                                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                                    backdropFilter: 'blur(15px)',
+                                    padding: '0.6rem 1rem',
+                                    borderRadius: '1.25rem',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    flex: isMobile ? 'none' : 'none'
+                                }}>
+                                    <span style={{ color: '#4ade80', fontWeight: 900, fontSize: '0.7rem' }}>LAP</span>
+                                    <span style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: 900, color: '#fff' }}>{stats.lap}/{stats.totalLaps}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Moto GP Style Mini Map */}
+                        {/* Mini Map - Reverted to Preferred Style */}
                         <div style={{ position: 'relative', pointerEvents: 'auto', display: isMobile ? 'none' : 'block' }}>
-                            <div style={{ position: 'absolute', inset: '-0.75rem', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 75%)', filter: 'blur(25px)' }} />
-                            <div style={{ position: 'relative', padding: '0.25rem', backgroundColor: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(20px)', borderRadius: '3.5rem', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 30px 60px -15px rgba(0, 0, 0, 0.8)', overflow: 'hidden' }}>
+                            <div style={{
+                                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                                backdropFilter: 'blur(10px)',
+                                padding: '0.4rem',
+                                borderRadius: '1rem',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
+                            }}>
                                 <canvas
                                     ref={miniMapRef}
-                                    style={{ borderRadius: '3rem', display: 'block', opacity: 0.8 }}
+                                    style={{ borderRadius: '0.75rem', display: 'block' }}
                                 />
-                                {/* Pro Overlay Labels */}
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '0.75rem 0', textAlign: 'center', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                    <span style={{ fontSize: '9px', fontWeight: 900, letterSpacing: '0.5em', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontStyle: 'italic', fontFamily: 'var(--font-rajdhani)' }}>Scanner / active</span>
-                                </div>
-                                <div style={{ position: 'absolute', bottom: '1.5rem', right: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', opacity: 0.4 }}>
-                                    <span style={{ fontSize: '7px', fontWeight: 900, color: '#3b82f6', fontFamily: 'var(--font-rajdhani)' }}>GPS SIGNAL</span>
-                                    <span style={{ fontSize: '7px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-rajdhani)' }}>TRACK: ACTIVE</span>
-                                </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Footer: Mobile Controls - Always Visible */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '100%', pointerEvents: 'none', paddingBottom: isMobile ? '2rem' : '1rem' }}>
-                        {/* Left Controls (Steering) */}
-                        <div style={{ display: 'flex', gap: isMobile ? '0.4rem' : '1.5rem', pointerEvents: 'auto' }}>
+                        {/* Steering Controls - Compact Round */}
+                        <div style={{ display: 'flex', gap: '0.75rem', pointerEvents: 'auto' }}>
                             <button
                                 style={{
-                                    width: isMobile ? '4.5rem' : '5.5rem', height: isMobile ? '4.5rem' : '5.5rem',
+                                    width: isMobile ? '4rem' : '5rem', height: isMobile ? '4rem' : '5rem',
                                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                    backdropFilter: 'blur(20px)',
-                                    borderRadius: isMobile ? '1.25rem' : '1.75rem',
-                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    backdropFilter: 'blur(10px)',
+                                    borderRadius: '50%',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     cursor: 'pointer', outline: 'none',
-                                    boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
                                 }}
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keyLeft = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keyLeft = false; }}
                             >
-                                <div style={{ width: '0', height: '0', borderTop: `${isMobile ? 12 : 15}px solid transparent`, borderBottom: `${isMobile ? 12 : 15}px solid transparent`, borderRight: `${isMobile ? 18 : 22}px solid white` }} />
+                                <span style={{ fontSize: '1.25rem', color: 'white' }}>◀</span>
                             </button>
                             <button
                                 style={{
-                                    width: isMobile ? '4.5rem' : '5.5rem', height: isMobile ? '4.5rem' : '5.5rem',
+                                    width: isMobile ? '4rem' : '5rem', height: isMobile ? '4rem' : '5rem',
                                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                    backdropFilter: 'blur(20px)',
-                                    borderRadius: isMobile ? '1.25rem' : '1.75rem',
-                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    backdropFilter: 'blur(10px)',
+                                    borderRadius: '50%',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     cursor: 'pointer', outline: 'none',
-                                    boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
                                 }}
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keyRight = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keyRight = false; }}
                             >
-                                <div style={{ width: '0', height: '0', borderTop: `${isMobile ? 12 : 15}px solid transparent`, borderBottom: `${isMobile ? 12 : 15}px solid transparent`, borderLeft: `${isMobile ? 18 : 22}px solid white` }} />
+                                <span style={{ fontSize: '1.25rem', color: 'white' }}>▶</span>
                             </button>
                         </div>
 
                         {/* Right Controls (Action) */}
-                        <div style={{ display: 'flex', gap: isMobile ? '0.4rem' : '1.5rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
-                            {/* Brake Button */}
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
+                            {/* Brake Button - Compact */}
                             <button
                                 style={{
-                                    width: isMobile ? '3.5rem' : '5rem', height: isMobile ? '3.5rem' : '5rem',
-                                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                                    backdropFilter: 'blur(20px)',
-                                    borderRadius: isMobile ? '1rem' : '1.5rem',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', outline: 'none',
-                                    opacity: 0.9,
-                                    transition: 'all 0.2s ease',
-                                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+                                    width: isMobile ? '3.5rem' : '4.5rem', height: isMobile ? '3.5rem' : '4.5rem',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    backdropFilter: 'blur(8px)',
+                                    borderRadius: '50%',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', color: '#ef4444', fontWeight: 900, fontSize: '0.6rem'
                                 }}
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keySlower = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keySlower = false; }}
                             >
-                                <span style={{ fontSize: isMobile ? '10px' : '14px', fontWeight: 900, textTransform: 'uppercase' }}>BRAKE</span>
+                                STOP
                             </button>
 
-                            {/* Gas Button (GO) */}
+                            {/* Gas Button - Compact Circle */}
                             <button
                                 style={{
-                                    width: isMobile ? '5.5rem' : '8.5rem', height: isMobile ? '5.5rem' : '8.5rem',
+                                    width: isMobile ? '5.5rem' : '7.5rem', height: isMobile ? '5.5rem' : '7.5rem',
                                     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                    backdropFilter: 'blur(24px)',
-                                    borderRadius: isMobile ? '1.5rem' : '3rem',
-                                    border: '2px solid rgba(255, 255, 255, 0.2)',
-                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', outline: 'none',
-                                    boxShadow: '0 15px 45px rgba(16, 185, 129, 0.4), inset 0 0 25px rgba(255,255,255,0.1)',
-                                    transition: 'transform 0.1s active'
+                                    borderRadius: '50%',
+                                    border: '3px solid rgba(255, 255, 255, 0.1)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', color: 'white', fontWeight: 900, fontSize: '1.25rem'
                                 }}
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keyFaster = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keyFaster = false; }}
                             >
-                                <span style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: 900, color: 'white' }}>GO</span>
+                                GO
                             </button>
 
-                            {/* Boost Button (NOS) - Blue Neon Theme */}
+                            {/* NOS Button - Compact */}
                             <button
                                 style={{
-                                    width: isMobile ? '4.5rem' : '6.5rem', height: isMobile ? '4.5rem' : '6.5rem',
-                                    background: stats.nos > 0 ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'rgba(255, 255, 255, 0.1)',
-                                    backdropFilter: 'blur(24px)',
-                                    borderRadius: isMobile ? '1.25rem' : '2rem',
-                                    border: stats.nos > 0 ? '2px solid rgba(255, 255, 255, 0.3)' : '1px solid rgba(255,255,255,0.1)',
-                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', outline: 'none',
-                                    boxShadow: stats.nos > 0 ? '0 12px 35px rgba(59, 130, 246, 0.5)' : 'none',
-                                    opacity: stats.nos > 0 ? 1 : 0.5,
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                    width: isMobile ? '4rem' : '5rem', height: isMobile ? '4rem' : '5rem',
+                                    background: stats.nos > 0 ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'rgba(255, 255, 255, 0.05)',
+                                    borderRadius: '50%',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', opacity: stats.nos > 0 ? 1 : 0.5, color: 'white', fontWeight: 900
                                 }}
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
                             >
-                                <span style={{ fontSize: isMobile ? '1rem' : '1.2rem', fontWeight: 900, color: 'white' }}>NOS</span>
+                                NOS
                             </button>
                         </div>
                     </div>
@@ -1511,42 +1623,28 @@ export default function GameSpeedPage() {
                 }
             `}</style>
 
-            {/* Preparation Overlay - Tahap Persiapan Sebelum Balapan */}
+            {/* Preparation Overlay - Citynight Premium Style */}
             {mounted && gameState === 'preparation' && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(40px)', color: 'white', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
-                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '4rem', borderRadius: '4rem', border: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center', boxShadow: '0 25px 80px rgba(0, 0, 0, 0.9), inset 0 0 40px rgba(255,255,255,0.02)', maxWidth: '40rem', width: '90%' }}>
-                        {/* Racing Icon */}
-                        <div style={{ fontSize: '8rem', marginBottom: '1rem', filter: 'drop-shadow(0 0 20px rgba(59, 130, 246, 0.6))' }}>🏁</div>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.9)', color: 'white', fontFamily: 'var(--font-rajdhani)' }}>
+                    <div style={{ backgroundColor: '#0f172a', padding: '3.5rem', borderRadius: '2rem', border: '2px solid #3b82f6', textAlign: 'center', boxShadow: '0 0 60px rgba(59, 130, 246, 0.3)', maxWidth: '38rem', width: '90%' }}>
+                        <div style={{ fontSize: '6rem', marginBottom: '1rem' }}>🏁</div>
+                        <h1 style={{ fontSize: '4rem', fontWeight: 950, fontStyle: 'italic', marginBottom: '0.5rem', color: '#fff' }}>GET READY!</h1>
+                        <p style={{ color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4em', marginBottom: '3rem' }}>City Night Protocol Active</p>
 
-                        {/* Title */}
-                        <h1 style={{ fontSize: '4rem', fontWeight: 900, fontStyle: 'italic', marginBottom: '0.5rem', background: 'linear-gradient(to bottom, #fff, #3b82f6)', WebkitBackgroundClip: 'text', color: 'transparent', textShadow: '0 10px 30px rgba(59, 130, 246, 0.3)' }}>GET READY!</h1>
-                        <p style={{ color: 'rgba(255, 255, 255, 0.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4em', marginBottom: '3rem', fontSize: '0.9rem' }}>Persiapan Balapan</p>
-
-                        {/* Race Info */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
-                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.2em', marginBottom: '0.5rem' }}>Laps</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 900, color: '#60a5fa', fontStyle: 'italic' }}>{stats.totalLaps}</div>
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem' }}>Distance</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#3b82f6' }}>{stats.totalLaps} LAPS</div>
                             </div>
-                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.2em', marginBottom: '0.5rem' }}>NOS</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 900, color: '#10b981', fontStyle: 'italic' }}>{stats.nos}%</div>
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem' }}>Nitro Fuel</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#10b981' }}>{stats.nos}%</div>
                             </div>
                         </div>
 
-                        {/* Instructions */}
-                        <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(59, 130, 246, 0.3)', marginBottom: '2.5rem' }}>
-                            <p style={{ fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: '1.6', margin: 0 }}>
-                                💡 <strong>Tip:</strong> Saat countdown, tekan <strong>W/↑</strong> untuk revving engine!<br />
-                                Kecepatan akan mentok di ~40 KPH sampai balapan dimulai.
-                            </p>
-                        </div>
-
-                        {/* Start Button */}
                         <button
                             onClick={() => {
                                 setGameState('countdown');
-                                // Start countdown sequence dari 5
                                 let count = 5;
                                 setCountdown(count);
                                 const interval = setInterval(() => {
@@ -1554,59 +1652,38 @@ export default function GameSpeedPage() {
                                     setCountdown(count);
                                     if (count <= 0) {
                                         clearInterval(interval);
-                                        setTimeout(() => {
-                                            setGameState('playing');
-                                        }, 500);
+                                        setTimeout(() => { setGameState('playing'); }, 500);
                                     }
                                 }, 1000);
                             }}
                             style={{
                                 width: '100%',
-                                padding: '2rem 0',
+                                padding: '1.75rem 0',
                                 background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                                 color: '#fff',
-                                borderRadius: '2rem',
+                                borderRadius: '1.5rem',
                                 fontWeight: 900,
-                                fontSize: '2rem',
+                                fontSize: '1.75rem',
                                 cursor: 'pointer',
                                 border: '2px solid rgba(255, 255, 255, 0.3)',
-                                boxShadow: '0 0 60px rgba(59, 130, 246, 0.6), inset 0 0 30px rgba(255,255,255,0.1)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '1rem',
-                                outline: 'none',
-                                transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                                animation: 'pulse-glow 2s infinite'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'scale(1.05)';
-                                e.currentTarget.style.boxShadow = '0 0 80px rgba(59, 130, 246, 0.8), inset 0 0 40px rgba(255,255,255,0.2)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'scale(1)';
-                                e.currentTarget.style.boxShadow = '0 0 60px rgba(59, 130, 246, 0.6), inset 0 0 30px rgba(255,255,255,0.1)';
+                                boxShadow: '0 0 50px rgba(59, 130, 246, 0.5)'
                             }}
                         >
-                            <span style={{ letterSpacing: '0.1em' }}>START RACE</span>
-                            <span style={{ fontSize: '2rem' }}>🏁</span>
+                            START ENGINE
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* Countdown Overlay */}
+            {/* Countdown Overlay - Clean Elegant Style */}
             {mounted && gameState === 'countdown' && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.2)', color: 'white', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
                     <div style={{ position: 'relative' }}>
-                        <div style={{ position: 'absolute', inset: '-10rem', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, transparent 70%)', filter: 'blur(150px)', borderRadius: '9999px' }} />
                         <div style={{
-                            fontSize: '25rem',
+                            fontSize: '20rem',
                             fontWeight: 900,
-                            fontStyle: 'italic',
                             color: 'white',
-                            textShadow: '0 0 40px rgba(255, 255, 255, 0.8), 0 10px 100px rgba(59, 130, 246, 0.6)',
-                            lineHeight: 1,
+                            textShadow: '0 0 80px rgba(255, 255, 255, 1), 0 0 30px rgba(255, 255, 255, 0.6), 0 10px 50px rgba(0, 0, 0, 0.5)',
                             animation: 'countdown-scale 1s infinite cubic-bezier(0.18, 0.89, 0.32, 1.28)'
                         }}>
                             {countdown > 0 ? countdown : 'GO'}
@@ -1615,31 +1692,51 @@ export default function GameSpeedPage() {
                 </div>
             )}
 
-            {/* Victory Overlay */}
-            {mounted && gameState === 'finished' && ( // Conditionally render the victory overlay
-                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.4)', backdropFilter: 'blur(40px)', color: 'white', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
-                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '4rem', borderRadius: '4rem', border: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center', boxShadow: '0 25px 80px rgba(0, 0, 0, 0.9), inset 0 0 40px rgba(255,255,255,0.02)', maxWidth: '36rem', width: '90%' }}>
-                        <div style={{ fontSize: '8rem', marginBottom: '1rem', filter: 'drop-shadow(0 0 20px rgba(251, 191, 36, 0.4))' }}>🏆</div>
-                        <h1 style={{ fontSize: '5rem', fontWeight: 900, fontStyle: 'italic', marginBottom: '0.25rem', background: 'linear-gradient(to bottom, #fff, #fbbf24)', WebkitBackgroundClip: 'text', color: 'transparent', textShadow: '0 10px 30px rgba(251, 191, 36, 0.3)' }}>VICTORY!</h1>
-                        <p style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.6em', marginBottom: '3.5rem', fontSize: '0.75rem' }}>Race Completed Successfully</p>
+            {/* Victory Overlay - Premium Modern Style */}
+            {mounted && gameState === 'finished' && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.95)' }}>
+                    <div style={{
+                        backgroundColor: '#0f172a',
+                        padding: '3rem',
+                        borderRadius: '2.5rem',
+                        textAlign: 'center',
+                        boxShadow: '0 0 60px rgba(59, 130, 246, 0.4)',
+                        maxWidth: '35rem',
+                        width: '90%',
+                        color: 'white',
+                        fontFamily: 'var(--font-rajdhani)',
+                        border: '2px solid #3b82f6'
+                    }}>
+                        <div style={{ fontSize: '5rem', marginBottom: '1.5rem' }}>🏆</div>
+                        <h1 style={{ fontSize: '4rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.5rem', background: 'linear-gradient(to bottom, #fff, #fbbf24)', WebkitBackgroundClip: 'text', color: 'transparent' }}>MISSION CLEAR</h1>
+                        <p style={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3em', marginBottom: '3rem' }}>Racing Protocol: Complete</p>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginBottom: '3.5rem' }}>
-                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '2rem', borderRadius: '2rem', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: 'inset 0 0 15px rgba(251, 191, 36, 0.05)' }}>
-                                <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.3)', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.2em', marginBottom: '0.5rem' }}>Points Earned</div>
-                                <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#fbbf24', fontStyle: 'italic', textShadow: '0 0 15px rgba(251, 191, 36, 0.4)' }}>1,000</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                <div style={{ fontSize: '0.75rem', color: '#fbbf24', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem' }}>Grade Points</div>
+                                <div style={{ fontSize: '3rem', fontWeight: 900 }}>100</div>
                             </div>
-                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: '2rem', borderRadius: '2rem', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: 'inset 0 0 15px rgba(59, 130, 246, 0.05)' }}>
-                                <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.3)', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.2em', marginBottom: '0.5rem' }}>Final Time</div>
-                                <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#60a5fa', fontStyle: 'italic', textShadow: '0 0 15px rgba(96, 165, 250, 0.4)' }}>01:24</div>
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                <div style={{ fontSize: '0.75rem', color: '#60a5fa', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem' }}>Record Time</div>
+                                <div style={{ fontSize: '3rem', fontWeight: 900 }}>01:24</div>
                             </div>
                         </div>
 
                         <button
                             onClick={endGame}
-                            style={{ width: '100%', padding: '1.5rem 0', background: 'linear-gradient(135deg, #fff 0%, #e2e8f0 100%)', color: '#000', borderRadius: '2rem', fontWeight: 900, fontSize: '1.5rem', cursor: 'pointer', border: 'none', boxShadow: '0 0 40px rgba(255, 255, 255, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', outline: 'none', transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+                            style={{
+                                width: '100%',
+                                padding: '1.5rem',
+                                background: 'transparent',
+                                color: '#3b82f6',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '1rem',
+                                fontWeight: 900,
+                                fontSize: '1.5rem',
+                                cursor: 'pointer'
+                            }}
                         >
-                            <span style={{ letterSpacing: '0.1em' }}>CONTINUE</span>
-                            <span style={{ fontSize: '1.5rem' }}>→</span>
+                            RETURN TO BASE
                         </button>
                     </div>
                 </div>
