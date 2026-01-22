@@ -22,13 +22,13 @@ const rajdhani = Rajdhani({
 });
 
 export const metadata: Metadata = {
-  title: "EduRace - Belajar Sambil Balapan",
-  description: "Game edukasi seru yang menggabungkan quiz dengan gameplay balapan. Uji pengetahuanmu sambil menikmati keseruan balapan!",
-  keywords: ["edukasi", "game", "quiz", "balapan", "racing", "belajar", "tryout"],
-  authors: [{ name: "EduRace Team" }],
+  title: "NitroQuiz - Balap Cerdas Adrenalin Tinggi",
+  description: "Game kuis seru berkecepatan tinggi! Jawab pertanyaan, nyalakan nitro, dan jadilah juara di NitroQuiz.",
+  keywords: ["edukasi", "game", "quiz", "balapan", "racing", "belajar", "nitro", "turbo"],
+  authors: [{ name: "NitroQuiz Team" }],
   openGraph: {
-    title: "EduRace - Belajar Sambil Balapan",
-    description: "Game edukasi seru yang menggabungkan quiz dengan gameplay balapan.",
+    title: "NitroQuiz - Balap Cerdas Adrenalin Tinggi",
+    description: "Game kuis seru berkecepatan tinggi! Jawab pertanyaan, nyalakan nitro, dan jadilah juara.",
     type: "website",
   },
 };

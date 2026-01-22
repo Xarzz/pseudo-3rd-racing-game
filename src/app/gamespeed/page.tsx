@@ -58,6 +58,9 @@ interface Car {
     speed: number;
     percent: number;
     isRival?: boolean;
+    type?: 'jne' | 'truck';
+    animTimer?: number;
+    animFrame?: number;
 }
 
 interface Segment {
@@ -144,6 +147,9 @@ export default function GameSpeedPage() {
         // Starting Sequence - Revving State
         revvingFrame: 0, // 0 atau 1 untuk toggle antara start_1 dan start_2
         revvingTimer: 0,
+        // MC / Forward Animation State
+        mcFrame: 0,
+        mcTimer: 0,
     });
 
 
@@ -165,9 +171,9 @@ export default function GameSpeedPage() {
             }
 
             const assetList = [
-                { name: 'car', src: '/assets/vehicles/foward-sonic.png' },
-                { name: 'car_diag_left', src: '/assets/vehicles/diag-left-sonic.png' },
-                { name: 'car_diag_right', src: '/assets/vehicles/diag-right-sonic.png' },
+                { name: 'car', src: '/assets/vehicles/mc/foward-sonic.png' },
+                { name: 'car_diag_left', src: '/assets/vehicles/mc/diag-left-sonic.png' },
+                { name: 'car_diag_right', src: '/assets/vehicles/mc/diag-right-sonic.png' },
                 { name: 'bg', src: '/assets/backgorund/citynight.png' },
                 { name: 'obstacle', src: '/assets/obstacles/obstacle_barrel.png' },
                 { name: 'npc_car', src: '/assets/vehicles/car_ai_blue.jpg' },
@@ -176,7 +182,18 @@ export default function GameSpeedPage() {
                 { name: 'car_rival', src: '/assets/vehicles/foward-opponent.png' },
                 { name: 'truck1', src: '/assets/vehicles/truck1.png' },
                 { name: 'truck2', src: '/assets/vehicles/truck2.png' },
+                // JNE Truck Animation Assets
+                { name: 'jne_straight_1', src: '/assets/vehicles/jne/1lurus.png' },
+                { name: 'jne_straight_2', src: '/assets/vehicles/jne/2lurus.png' },
+                { name: 'jne_left_1', src: '/assets/vehicles/jne/1kiri.png' },
+                { name: 'jne_left_2', src: '/assets/vehicles/jne/2kiri.png' },
+                { name: 'jne_right_1', src: '/assets/vehicles/jne/1kanan.png' },
+                { name: 'jne_right_2', src: '/assets/vehicles/jne/2kanan.png' },
                 { name: 'car_1st', src: '/assets/vehicles/1rd-pov/1rd-sonic-foward-v2.png' },
+
+                // Ganesha Operation
+                { name: 'ganesha_building', src: '/assets/ganesha/ganesha_building.png' },
+
                 // Assets Kiri Jalan
                 { name: 'kiri_basmallah', src: '/assets/material/kiri_jalan/1basmallah.png' },
                 { name: 'kiri_burger', src: '/assets/material/kiri_jalan/1burger.png' },
@@ -197,6 +214,18 @@ export default function GameSpeedPage() {
                 // Starting Sequence - Revving Animation
                 { name: 'start_1', src: '/assets/vehicles/start/1.png' },
                 { name: 'start_2', src: '/assets/vehicles/start/2.png' },
+                // MC / Forward Animation
+                { name: 'mc_1', src: '/assets/vehicles/mc/1lurus.png' },
+                { name: 'mc_2', src: '/assets/vehicles/mc/2lurus.png' },
+                // MC / Turn Left Animation
+                { name: 'mc_left_1', src: '/assets/vehicles/mc/1kiri.png' },
+                { name: 'mc_left_2', src: '/assets/vehicles/mc/2kiri.png' },
+                // MC / Turn Right Animation
+                { name: 'mc_right_1', src: '/assets/vehicles/mc/1kanan.png' },
+                { name: 'mc_right_2', src: '/assets/vehicles/mc/2kanan.png' },
+                // Braking Animation<bos>w
+                { name: 'rem_1', src: '/assets/vehicles/rem/1.png' },
+                { name: 'rem_2', src: '/assets/vehicles/rem/2.png' },
                 // NOS Animation Frames
                 { name: 'nos_1', src: '/assets/vehicles/gif/1.png' },
                 { name: 'nos_2', src: '/assets/vehicles/gif/2.png' },
@@ -207,9 +236,15 @@ export default function GameSpeedPage() {
                 { name: 'nos_7', src: '/assets/vehicles/gif/7.png' },
                 { name: 'nos_8', src: '/assets/vehicles/gif/8.png' },
                 { name: 'nos_9', src: '/assets/vehicles/gif/9.png' },
-                { name: 'nos_41', src: '/assets/vehicles/gif/41.png' },
-                { name: 'nos_42', src: '/assets/vehicles/gif/42.png' },
-                { name: 'nos_43', src: '/assets/vehicles/gif/43.png' },
+                { name: 'nos_10', src: '/assets/vehicles/gif/10.png' },
+                { name: 'nos_11', src: '/assets/vehicles/gif/11.png' },
+                { name: 'nos_12', src: '/assets/vehicles/gif/12.png' },
+                { name: 'nos_13', src: '/assets/vehicles/gif/13.png' },
+                { name: 'nos_14', src: '/assets/vehicles/gif/14.png' },
+                { name: 'nos_15', src: '/assets/vehicles/gif/15.png' },
+                { name: 'nos_16', src: '/assets/vehicles/gif/16.png' },
+                { name: 'nos_17', src: '/assets/vehicles/gif/17.png' },
+                { name: 'nos_18', src: '/assets/vehicles/gif/18.png' },
             ];
 
             const promises = assetList.map(item => new Promise<void>((resolve) => {
@@ -347,8 +382,8 @@ export default function GameSpeedPage() {
 
         // --- NFS STYLE CITY POPULATION ---
         const len = state.current.segments.length;
-        const leftAssetPool = ['kiri_basmallah', 'kiri_burger', 'kiri_game', 'kiri_motel', 'kiri_ramen', 'kiri_gudang', 'kiri_motel2', 'kiri_restoran'];
-        const rightAssetPool = ['kanan_bank', 'kanan_gudang', 'kanan_kelontong', 'kanan_basmallah', 'kanan_burger', 'kanan_motel', 'kanan_kaffe'];
+        const leftAssetPool = ['kiri_basmallah', 'kiri_burger', 'kiri_game', 'kiri_motel', 'kiri_ramen', 'kiri_gudang', 'kiri_motel2', 'kiri_restoran', 'ganesha_building'];
+        const rightAssetPool = ['kanan_bank', 'kanan_gudang', 'kanan_kelontong', 'kanan_basmallah', 'kanan_burger', 'kanan_motel', 'kanan_kaffe', 'ganesha_building'];
 
         for (let n = 20; n < len - 100; n += 25) {
             // Pick assets from specific pools based on side
@@ -379,12 +414,18 @@ export default function GameSpeedPage() {
             const z = (n + 1) * (len * SEGMENT_LENGTH / 20);
             const offset = Util.randomChoice([-0.8, -0.4, 0.4, 0.8]);
             const speed = MAX_SPEED / 4 + Math.random() * (MAX_SPEED / 2);
+            // Randomly choose between JNE (animated) and Truck 2 (static)
+            const isJne = Math.random() > 0.5;
+
             const car: Car = {
                 offset: offset,
                 z: z,
-                sprite: Math.random() > 0.5 ? state.current.sprites.truck1 : state.current.sprites.truck2,
+                sprite: isJne ? state.current.sprites.jne_straight_1 : state.current.sprites.truck2,
                 speed: speed,
-                percent: 0
+                percent: 0,
+                type: isJne ? 'jne' : 'truck',
+                animTimer: isJne ? Math.random() * 100 : 0,
+                animFrame: 0
             };
             state.current.cars.push(car);
             findSegment(z).cars.push(car);
@@ -597,6 +638,17 @@ export default function GameSpeedPage() {
             const x = (steer * -30);
             const y = height - (destH * 0.8); // Posisi tetap stabil tanpa bounce
 
+            // Dashboard red glow for 1st person
+            if (state.current.keySlower) {
+                ctx.save();
+                const grd = ctx.createLinearGradient(0, height, 0, height - 150);
+                grd.addColorStop(0, 'rgba(255, 0, 0, 0.4)');
+                grd.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                ctx.fillStyle = grd;
+                ctx.fillRect(0, height - 150, width, 150);
+                ctx.restore();
+            }
+
             // Render sprite apa adanya tanpa tilt
             ctx.drawImage(sprite, x, y, destW, destH);
             return;
@@ -609,12 +661,22 @@ export default function GameSpeedPage() {
         const isCountdown = gameState === 'countdown';
         const isAtStart = isPreparing || isCountdown;
 
-        // Update revving animation timer - Only play when gas is pressed at start
-        if (isAtStart && keyFaster) {
+        // Update revving animation timer - Play when gas is pressed at start OR when braking
+        // Update revving animation timer - Play when gas is pressed at start OR when braking
+        if ((isAtStart && keyFaster) || state.current.keySlower) {
             state.current.revvingTimer += 16; // ~60fps
-            if (state.current.revvingTimer >= 80) { // Fast toggle for revving effect
+            if (state.current.revvingTimer >= 80) { // Fast toggle for revving/braking effect
                 state.current.revvingTimer = 0;
                 state.current.revvingFrame = state.current.revvingFrame === 0 ? 1 : 0;
+            }
+        }
+
+        // Update MC Animation timer - Play when driving (Forward, Left, or Right)
+        if (!isAtStart && (keyFaster || keyLeft || keyRight) && !state.current.keySlower) {
+            state.current.mcTimer += 16;
+            if (state.current.mcTimer >= 80) {
+                state.current.mcTimer = 0;
+                state.current.mcFrame = state.current.mcFrame === 0 ? 1 : 0;
             }
         }
 
@@ -622,12 +684,23 @@ export default function GameSpeedPage() {
 
         // Pilih sprite berdasarkan kondisi
         if (isAtStart && keyFaster) {
-            // Tampilkan animasi revving hanya saat menekan gas di awal
+            // Tampilkan animasi revving saat menekan gas di awal
             sprite = state.current.revvingFrame === 0 ? sprites.start_1 : sprites.start_2;
+        } else if (state.current.keySlower) {
+            // Animasi Pengereman (Braking)
+            sprite = state.current.revvingFrame === 0 ? sprites.rem_1 : sprites.rem_2;
         } else if (keyLeft) {
-            sprite = sprites.car_diag_left || sprites.car;
+            // Turn Left Animation
+            sprite = state.current.mcFrame === 0 ? sprites.mc_left_1 : sprites.mc_left_2;
         } else if (keyRight) {
-            sprite = sprites.car_diag_right || sprites.car;
+            // Turn Right Animation
+            sprite = state.current.mcFrame === 0 ? sprites.mc_right_1 : sprites.mc_right_2;
+        } else if (keyFaster) {
+            // Normal Forward Driving (MC Animation)
+            sprite = state.current.mcFrame === 0 ? sprites.mc_1 : sprites.mc_2;
+        } else {
+            // IDLE / Coasting (No WASD pressed) - Use standard forward-sonic
+            sprite = sprites.car;
         }
 
         if (!sprite) return;
@@ -645,10 +718,10 @@ export default function GameSpeedPage() {
         const FRAME_DURATION = 60; // ms per frame (lebih cepat untuk transisi natural)
         state.current.nosFrameTimer += 16; // ~60fps
 
-        // Define frame sequences - disederhanakan untuk transisi lebih smooth
-        const STARTUP_FRAMES = [1, 3, 5]; // Skip beberapa frame untuk lebih cepat
-        const LOOP_FRAMES = [6, 7, 8, 9];
-        const ENDING_FRAMES = [41, 43]; // Skip frame 42 untuk ending lebih cepat
+        // Define frame sequences for the new 1-18 gif sequence
+        const STARTUP_FRAMES = [1, 2, 3, 4, 5, 6];
+        const LOOP_FRAMES = [7, 8, 9, 10, 11, 12, 13, 14, 15];
+        const ENDING_FRAMES = [16, 17, 18];
 
         let currentNosSprite: any = null;
 
@@ -656,10 +729,18 @@ export default function GameSpeedPage() {
         if (isNitro) {
             // NOS is being pressed
             if (!wasPressed) {
-                // Just started pressing - begin startup animation
-                state.current.nosPhase = 'startup';
-                state.current.nosFrame = 0;
-                state.current.nosFrameTimer = 0;
+                // Just started pressing
+                if (state.current.nosPhase === 'ending') {
+                    // Resume consistency: If we were just ending, jump back to loop immediately
+                    // This prevents "stuttering" frame 1 if input flickers
+                    state.current.nosPhase = 'loop';
+                    state.current.nosFrame = 0;
+                } else {
+                    // Fresh start
+                    state.current.nosPhase = 'startup';
+                    state.current.nosFrame = 0;
+                    state.current.nosFrameTimer = 0;
+                }
             }
 
             if (state.current.nosPhase === 'startup') {
@@ -713,19 +794,30 @@ export default function GameSpeedPage() {
         // Determine which sprite to draw
         const finalSprite = currentNosSprite || sprite;
 
-        // Tentukan ukuran berdasarkan jenis sprite
         let finalW, finalH;
 
-        if (currentNosSprite || (isAtStart && keyFaster)) {
-            // Untuk sprite NOS dan START animation (revving), gunakan ukuran tetap dari base car 
-            // agar transisi animasi tetap stabil dan tidak berubah ukuran (nyambung dengan foward-sonic)
+        if (currentNosSprite) {
+            // For NOS animation (folder gif), force use of base car dimensions to maintain original size
+            // This fixes the issue where they became too small
             finalW = baseW;
             finalH = baseH;
         } else {
-            // Untuk sprite normal (termasuk diag-left dan diag-right), gunakan ukuran asli sprite
-            finalW = finalSprite.width * playerScale;
-            finalH = finalSprite.height * playerScale;
+            // Check if the current sprite is one of the MC animation frames that needs scaling down
+            const isMcStraight = [sprites.mc_1, sprites.mc_2].includes(finalSprite);
+            const isMcTurn = [sprites.mc_left_1, sprites.mc_left_2, sprites.mc_right_1, sprites.mc_right_2].includes(finalSprite);
+
+            let correctiveScale = 1.0;
+            if (isMcStraight) correctiveScale = 1.0; // Reduce slightly (1.05 -> 1.0)
+            else if (isMcTurn) correctiveScale = 0.84; // Keep turns as is
+
+            // Use the natural dimensions for MC/others to avoid distortion
+            finalW = finalSprite.width * playerScale * correctiveScale;
+            finalH = finalSprite.height * playerScale * correctiveScale;
         }
+
+        // Optional: If the resulting sprite is drastically different in size from the base car, 
+        // one might want to normalize it, but usually preserving aspect ratio is priority.
+        // For now, we trust the assets have reasonable relative resolutions.
 
         const finalX = width / 2 - finalW / 2 + (steer * 50);
         const finalY = height - finalH - 35;
@@ -733,46 +825,7 @@ export default function GameSpeedPage() {
         // Render sprite apa adanya tanpa tilt - gambar sudah memiliki posisi miring sendiri
         ctx.drawImage(finalSprite, finalX, finalY, finalW, finalH);
 
-        // --- Brake Lights Animation (Procedural) ---
-        if (state.current.keySlower && viewMode === 'third') {
-            ctx.save();
-            const lightSize = finalW * 0.12;
-            const lightY = finalY + finalH * 0.75; // Position at the rear bottom
-            const lightOffset = finalW * 0.3; // Distance from center
 
-            // Common glow style
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#ff0000';
-            ctx.fillStyle = '#ff4444';
-
-            // Left Light
-            ctx.beginPath();
-            ctx.arc(finalX + finalW / 2 - lightOffset, lightY, lightSize / 2, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Right Light
-            ctx.beginPath();
-            ctx.arc(finalX + finalW / 2 + lightOffset, lightY, lightSize / 2, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Extra flair: Red ground glow
-            const grd = ctx.createRadialGradient(finalX + finalW / 2, finalY + finalH, 0, finalX + finalW / 2, finalY + finalH, finalW);
-            grd.addColorStop(0, 'rgba(255, 0, 0, 0.3)');
-            grd.addColorStop(1, 'rgba(255, 0, 0, 0)');
-            ctx.fillStyle = grd;
-            ctx.fillRect(finalX - finalW, finalY + finalH - 20, finalW * 3, 60);
-
-            ctx.restore();
-        } else if (state.current.keySlower && viewMode === 'first') {
-            // Dashboard red glow for 1st person
-            ctx.save();
-            const grd = ctx.createLinearGradient(0, height, 0, height - 150);
-            grd.addColorStop(0, 'rgba(255, 0, 0, 0.4)');
-            grd.addColorStop(1, 'rgba(255, 0, 0, 0)');
-            ctx.fillStyle = grd;
-            ctx.fillRect(0, height - 150, width, 150);
-            ctx.restore();
-        }
     };
 
     // --- Core Updates ---
@@ -804,40 +857,46 @@ export default function GameSpeedPage() {
 
         const GAS_LIMIT = MAX_SPEED * 0.9;    // ~180 KPH
         const BOOST_LIMIT = MAX_SPEED * 1.1;  // ~220 KPH
-        const REVVING_LIMIT = MAX_SPEED * 0.2; // ~40 KPH untuk revving saat countdown
+        const REVVING_LIMIT = MAX_SPEED * 0.2; // ~40 KPH
 
-        // Saat countdown, batasi kecepatan untuk efek revving di tempat
         if (gameState === 'countdown') {
             if (keyFaster) {
-                // Bisa gas tapi mentok di 40 KPH
                 nextSpeed = Util.accelerate(speed, ACCEL * 0.5, dt);
                 nextSpeed = Math.min(nextSpeed, REVVING_LIMIT);
             } else {
-                // Turun perlahan kalau tidak tekan gas
                 nextSpeed = Util.accelerate(speed, DECEL, dt);
             }
-        } else if (keyBoost && nextNos > 0) {
-            // NOS BOOSTING
-            nextSpeed = Util.accelerate(speed, ACCEL * 2.5, dt);
-            nextNos = Math.max(0, nextNos - dt * 25); // Faster consumption
-
-            // Jitter effect at top speed (220 KPH region) - dikurangi untuk lebih halus
-            if (nextSpeed >= BOOST_LIMIT - 300) {
-                const jitter = (Math.random() - 0.5) * 200;
-                nextSpeed = Util.limit(nextSpeed + jitter, 0, BOOST_LIMIT);
-            }
-        } else if (keyFaster) {
-            // NORMAL GAS
-            nextSpeed = Util.accelerate(speed, ACCEL, dt);
-            if (nextSpeed > GAS_LIMIT) {
-                nextSpeed = Util.accelerate(nextSpeed, DECEL, dt);
-                nextSpeed = Math.max(nextSpeed, GAS_LIMIT);
-            }
-            nextNos = Math.min(100, nextNos + dt * 2); // Slow recovery while driving
         } else {
-            if (keySlower) nextSpeed = Util.accelerate(speed, BREAKING, dt);
-            else nextSpeed = Util.accelerate(speed, DECEL, dt);
-            nextNos = Math.min(100, nextNos + dt * 8); // Recovery
+            // physics calculation
+            const tryingToBoost = keyBoost && nextNos > 0;
+
+            if (tryingToBoost) {
+                // NOS BOOSTING
+                nextSpeed = Util.accelerate(speed, ACCEL * 2.5, dt);
+                nextNos = Math.max(0, nextNos - dt * 25); // Consumption
+
+                if (nextSpeed >= BOOST_LIMIT - 300) {
+                    const jitter = (Math.random() - 0.5) * 200;
+                    nextSpeed = Util.limit(nextSpeed + jitter, 0, BOOST_LIMIT);
+                }
+            } else if (keyFaster) {
+                // NORMAL GAS
+                nextSpeed = Util.accelerate(speed, ACCEL, dt);
+                if (nextSpeed > GAS_LIMIT) {
+                    nextSpeed = Util.accelerate(nextSpeed, DECEL, dt);
+                    nextSpeed = Math.max(nextSpeed, GAS_LIMIT);
+                }
+            } else {
+                // IDLE / BRAKING
+                if (keySlower) nextSpeed = Util.accelerate(speed, BREAKING, dt);
+                else nextSpeed = Util.accelerate(speed, DECEL, dt);
+            }
+
+            // Regen Logic - Only if NOT holding boost key
+            if (!keyBoost) {
+                if (keyFaster) nextNos = Math.min(100, nextNos + dt * 2); // Slow regen while driving
+                else nextNos = Math.min(100, nextNos + dt * 8); // Fast regen while idle/braking
+            }
         }
 
         state.current.nos = nextNos;
@@ -892,6 +951,33 @@ export default function GameSpeedPage() {
             // Re-spawn far behind cars to ahead
             if (car.z < position && (position - car.z) > trackLength / 2) {
                 car.z = Util.increase(car.z, trackLength, trackLength);
+            }
+
+            // --- NPC Animation Logic (JNE Trucks) ---
+            if (car.type === 'jne') {
+                car.animTimer = (car.animTimer || 0) + dt * 1000;
+                if (car.animTimer > 100) { // Toggle every 100ms
+                    car.animTimer = 0;
+                    car.animFrame = car.animFrame === 0 ? 1 : 0;
+                }
+
+                // Determine direction based on road curve
+                // Note: car.z was just updated above
+                const currentSeg = findSegment(car.z);
+                const curve = currentSeg.curve;
+
+                let dir = 'straight';
+                if (curve < -0.5) dir = 'left';
+                else if (curve > 0.5) dir = 'right';
+
+                // Select Sprite based on Dir + Frame
+                if (dir === 'left') {
+                    car.sprite = car.animFrame === 0 ? state.current.sprites.jne_left_1 : state.current.sprites.jne_left_2;
+                } else if (dir === 'right') {
+                    car.sprite = car.animFrame === 0 ? state.current.sprites.jne_right_1 : state.current.sprites.jne_right_2;
+                } else {
+                    car.sprite = car.animFrame === 0 ? state.current.sprites.jne_straight_1 : state.current.sprites.jne_straight_2;
+                }
             }
         }
 
@@ -1195,9 +1281,9 @@ export default function GameSpeedPage() {
 
         // DPR Scaling
         const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-        const logicalW = 240; // Wider for side labels
+        const logicalW = 240;
         const logicalH = 180;
-        const padding = 40;
+        // Padding removed here, defined locally for precise control
 
         if (canvas.width !== logicalW * dpr || canvas.height !== logicalH * dpr) {
             canvas.width = logicalW * dpr;
@@ -1210,8 +1296,8 @@ export default function GameSpeedPage() {
         ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, logicalW, logicalH);
 
-        // 1. Pro Racing Background (Dark Matte)
-        ctx.fillStyle = 'rgba(10, 15, 25, 0.98)';
+        // 1. Scanner Background (Dark Blue/Black)
+        ctx.fillStyle = 'rgba(10, 15, 25, 0.95)';
         ctx.beginPath();
         if ((ctx as any).roundRect) {
             (ctx as any).roundRect(0, 0, logicalW, logicalH, 20);
@@ -1220,36 +1306,58 @@ export default function GameSpeedPage() {
         }
         ctx.fill();
 
-        // Subtle Grid Background
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        // 2. Scanner Grid
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
         ctx.lineWidth = 1;
-        for (let i = 0; i < logicalW; i += 20) {
+        for (let i = 0; i < logicalW; i += 30) {
             ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, logicalH); ctx.stroke();
         }
-        for (let i = 0; i < logicalH; i += 20) {
+        for (let i = 0; i < logicalH; i += 30) {
             ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(logicalW, i); ctx.stroke();
         }
 
-        // Perimeter Glow
-        ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
-        ctx.lineWidth = 2;
+        // 3. Scanner Text Overlay
+        ctx.font = '700 italic 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fillText('SCANNER / ACTIVE', logicalW / 2, 22);
+
+        // Separator Line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(30, 30);
+        ctx.lineTo(logicalW - 30, 30);
         ctx.stroke();
 
+        ctx.textAlign = 'right';
+        ctx.font = '600 9px monospace';
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.6)';
+        ctx.fillText('GPS SIGNAL', logicalW - 15, logicalH - 22);
+        ctx.fillText('TRACK: ACTIVE', logicalW - 15, logicalH - 12);
+
+        // Bottom Separator Line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(30, logicalH - 35);
+        ctx.lineTo(logicalW - 30, logicalH - 35);
+        ctx.stroke();
+
+        // 4. Track Line Projection
         if (!segments || segments.length < 10) {
             ctx.restore();
             return;
         }
 
-        // 2. Data Processing - Angular Projection for Circuit Look
         const points: { x: number, z: number }[] = [];
         let xPos = 0, zPos = 0, heading = -Math.PI / 2;
 
-        // We use a simplified projection for the mini-map to make it look like a circuit layout
-        for (let i = 0; i < segments.length; i += 4) {
+        for (let i = 0; i < segments.length; i += 5) {
             const s = segments[i];
-            heading += (s.curve * 0.012); // Reduced sensitivity to prevent "knotting"
-            xPos += Math.cos(heading) * 12;
-            zPos += Math.sin(heading) * 12;
+            heading += (s.curve * 0.012);
+            xPos += Math.cos(heading) * 10;
+            zPos += Math.sin(heading) * 10;
             points.push({ x: xPos, z: zPos });
         }
 
@@ -1264,73 +1372,84 @@ export default function GameSpeedPage() {
 
         const trackW = maxX - minX || 1;
         const trackH = maxZ - minZ || 1;
-        const scale = Math.min((logicalW - padding * 2) / trackW, (logicalH - padding * 2) / trackH);
+
+        // Custom Margins to Maximize Size
+        const marginSide = 15; // Tight side margins
+        const marginTop = 40;  // Space for SCANNER/ACTIVE Header
+        const marginBot = 45;  // Space for GPS text and Bottom Line
+
+        const availW = logicalW - (marginSide * 2);
+        const availH = logicalH - marginTop - marginBot;
+
+        const scale = Math.min(availW / trackW, availH / trackH);
 
         const tx = (px: number) => logicalW / 2 + (px - (minX + maxX) / 2) * scale;
-        const ty = (pz: number) => logicalH / 2 + (pz - (minZ + maxZ) / 2) * scale;
+        // Center Y in the available vertical space (shifted down by marginTop)
+        const centerY = marginTop + (availH / 2);
+        const ty = (pz: number) => centerY + (pz - (minZ + maxZ) / 2) * scale;
 
-        // 3. Draw Track Base (The "Asphalt")
+        // Draw Blue Neon Track
         ctx.beginPath();
-        ctx.strokeStyle = 'rgba(30, 41, 59, 0.8)';
-        ctx.lineWidth = 14;
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 6;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
-        ctx.moveTo(tx(points[0].x), ty(points[0].z));
-        for (let i = 1; i < points.length; i++) ctx.lineTo(tx(points[i].x), ty(points[i].z));
-        ctx.stroke();
-
-        // 4. Draw Racing Line (Neon Blue)
-        ctx.beginPath();
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 4;
-        ctx.setLineDash([]); // Ensure no dash
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 10;
         ctx.shadowColor = '#3b82f6';
         ctx.moveTo(tx(points[0].x), ty(points[0].z));
         for (let i = 1; i < points.length; i++) ctx.lineTo(tx(points[i].x), ty(points[i].z));
         ctx.stroke();
-        ctx.shadowBlur = 0;
 
-        // 5. Clear Start & Finish Markers
+        // Overlay Lighter Core for track
+        ctx.beginPath();
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 0;
+        ctx.moveTo(tx(points[0].x), ty(points[0].z));
+        for (let i = 1; i < points.length; i++) ctx.lineTo(tx(points[i].x), ty(points[i].z));
+        ctx.stroke();
+
+        // 5. Markers
         const startP = points[0];
         const endP = points[points.length - 1];
 
-        // Start Marker (Green Line)
+        // START Label
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'left';
+        ctx.font = '800 10px sans-serif';
+        ctx.fillText('START', tx(startP.x) + 14, ty(startP.z) + 3);
+
+        // START Icon (Start Line)
         ctx.strokeStyle = '#22c55e';
-        ctx.lineWidth = 6;
+        ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(tx(startP.x) - 10, ty(startP.z));
         ctx.lineTo(tx(startP.x) + 10, ty(startP.z));
         ctx.stroke();
 
-        // Finish Marker (Checkered Red/White feel)
-        ctx.strokeStyle = '#ef4444';
-        ctx.setLineDash([4, 4]);
+        // FINISH Label
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'right';
+        ctx.fillText('FINISH', tx(endP.x) - 18, ty(endP.z) + 3);
+
+        // FINISH Icon (Line dashed)
         ctx.beginPath();
-        ctx.moveTo(tx(endP.x) - 15, ty(endP.z));
-        ctx.lineTo(tx(endP.x) + 15, ty(endP.z));
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 6;
+        ctx.setLineDash([3, 3]);
+        ctx.moveTo(tx(endP.x) - 10, ty(endP.z));
+        ctx.lineTo(tx(endP.x) + 10, ty(endP.z));
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Text Labels for Start/Finish - Moved to the sides to keep the track clear
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '900 9px sans-serif';
-
-        // START on the left side of the point
-        ctx.textAlign = 'right';
-        ctx.fillText('START ', tx(startP.x) - 12, ty(startP.z) + 3);
-
-        // FINISH on the right side of the point
-        ctx.textAlign = 'left';
-        ctx.fillText(' FINISH', tx(endP.x) + 12, ty(endP.z) + 3);
-
-        // 6. Player Position
+        // 6. Player Position (Red Dot with White Outline)
         const playerIdx = Math.floor((position / trackLength) * points.length);
         const pPoint = points[Math.min(playerIdx, points.length - 1)] || points[0];
         const px = tx(pPoint.x);
         const py = ty(pPoint.z);
 
-        // Rivals/NPC Positions on Minimap
+        // Rivals
         state.current.cars.forEach(car => {
             if (car.isRival) {
                 const rivalIdx = Math.floor((car.z / trackLength) * points.length);
@@ -1338,10 +1457,10 @@ export default function GameSpeedPage() {
                 const rx = tx(rPoint.x);
                 const ry = ty(rPoint.z);
 
-                // Rival Icon (Blue Circle)
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = '#3b82f6';
-                ctx.fillStyle = '#3b82f6';
+                // Rival Icon (Blue, matching player style)
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = 'rgba(59, 130, 246, 0.8)'; // Blue glow
+                ctx.fillStyle = '#3b82f6'; // Blue fill
                 ctx.beginPath();
                 ctx.arc(rx, ry, 6, 0, Math.PI * 2);
                 ctx.fill();
@@ -1351,23 +1470,22 @@ export default function GameSpeedPage() {
             }
         });
 
-        // Pulsing Aura for Player
+        // Player Pulse
         const pulse = (Date.now() % 1000) / 1000;
         ctx.beginPath();
-        ctx.arc(px, py, 10 + pulse * 12, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(239, 68, 68, ${0.4 - pulse * 0.4})`;
+        ctx.arc(px, py, 6 + pulse * 10, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(239, 68, 68, ${0.5 - pulse * 0.5})`;
         ctx.fill();
 
-        // Player Dot
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#ef4444';
+        // Player Icon
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'white';
         ctx.fillStyle = '#ef4444';
         ctx.beginPath();
-        ctx.arc(px, py, 7, 0, Math.PI * 2);
+        ctx.arc(px, py, 6, 0, Math.PI * 2);
         ctx.fill();
-
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.stroke();
 
         ctx.restore();
@@ -1419,7 +1537,6 @@ export default function GameSpeedPage() {
                                     padding: isMobile ? '0.75rem 1rem' : '1.5rem 2.5rem',
                                     borderRadius: isMobile ? '1.5rem' : '2rem',
                                     border: '1px solid rgba(255, 255, 255, 0.15)',
-                                    boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
                                     flex: isMobile ? 1 : 'none',
                                     textAlign: isMobile ? 'center' : 'left'
                                 }}>
@@ -1460,7 +1577,6 @@ export default function GameSpeedPage() {
                                         flexDirection: 'column',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        boxShadow: '0 10px 30px rgba(59, 130, 246, 0.3)',
                                         transition: 'all 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
                                         gap: '2px'
                                     }}
@@ -1484,7 +1600,7 @@ export default function GameSpeedPage() {
                                     gap: '0.75rem',
                                     flex: isMobile ? 1 : 'none'
                                 }}>
-                                    <span style={{ color: '#60a5fa', fontWeight: 900, fontSize: '0.7rem' }}>NOS</span>
+                                    <span style={{ color: '#60a5fa', fontWeight: 900, fontSize: '0.7rem', textShadow: '0 0 10px rgba(59, 130, 246, 0.8)' }}>NOS</span>
                                     <div style={{ flex: 1, minWidth: isMobile ? '40px' : '80px', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
                                         <div style={{ width: `${stats.nos}%`, height: '100%', backgroundColor: '#3b82f6', boxShadow: '0 0 10px #3b82f6' }} />
                                     </div>
@@ -1500,7 +1616,7 @@ export default function GameSpeedPage() {
                                     gap: '0.5rem',
                                     flex: isMobile ? 'none' : 'none'
                                 }}>
-                                    <span style={{ color: '#4ade80', fontWeight: 900, fontSize: '0.7rem' }}>LAP</span>
+                                    <span style={{ color: '#4ade80', fontWeight: 900, fontSize: '0.7rem', textShadow: '0 0 10px rgba(74, 222, 128, 0.8)' }}>LAP</span>
                                     <span style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: 900, color: '#fff' }}>{stats.lap}/{stats.totalLaps}</span>
                                 </div>
                             </div>
@@ -1514,7 +1630,6 @@ export default function GameSpeedPage() {
                                 padding: '0.4rem',
                                 borderRadius: '1rem',
                                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
                             }}>
                                 <canvas
                                     ref={miniMapRef}
@@ -1541,7 +1656,7 @@ export default function GameSpeedPage() {
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keyLeft = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keyLeft = false; }}
                             >
-                                <span style={{ fontSize: '1.25rem', color: 'white' }}>◀</span>
+                                <span style={{ fontSize: '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>◀</span>
                             </button>
                             <button
                                 style={{
@@ -1556,7 +1671,7 @@ export default function GameSpeedPage() {
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keyRight = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keyRight = false; }}
                             >
-                                <span style={{ fontSize: '1.25rem', color: 'white' }}>▶</span>
+                                <span style={{ fontSize: '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>▶</span>
                             </button>
                         </div>
 
@@ -1571,7 +1686,8 @@ export default function GameSpeedPage() {
                                     borderRadius: '50%',
                                     border: '1px solid rgba(239, 68, 68, 0.3)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', color: '#ef4444', fontWeight: 900, fontSize: '0.6rem'
+                                    cursor: 'pointer', color: '#ef4444', fontWeight: 900, fontSize: '0.6rem',
+                                    textShadow: '0 0 8px rgba(239, 68, 68, 0.8)'
                                 }}
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keySlower = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keySlower = false; }}
@@ -1587,12 +1703,12 @@ export default function GameSpeedPage() {
                                     borderRadius: '50%',
                                     border: '3px solid rgba(255, 255, 255, 0.1)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', color: 'white', fontWeight: 900, fontSize: '1.25rem'
+                                    cursor: 'pointer', color: 'white', fontWeight: 900, fontSize: '1.25rem',
                                 }}
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keyFaster = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keyFaster = false; }}
                             >
-                                GO
+                                <span style={{ filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>GO</span>
                             </button>
 
                             {/* NOS Button - Compact */}
@@ -1603,12 +1719,12 @@ export default function GameSpeedPage() {
                                     borderRadius: '50%',
                                     border: '1px solid rgba(255, 255, 255, 0.1)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', opacity: stats.nos > 0 ? 1 : 0.5, color: 'white', fontWeight: 900
+                                    cursor: 'pointer', opacity: stats.nos > 0 ? 1 : 0.5, color: 'white', fontWeight: 900,
                                 }}
                                 onTouchStart={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
                                 onTouchEnd={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
                             >
-                                NOS
+                                <span style={{ filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>NOS</span>
                             </button>
                         </div>
                     </div>

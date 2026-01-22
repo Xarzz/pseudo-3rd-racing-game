@@ -24,7 +24,7 @@ export default function Home() {
           <span className="text-5xl">🏎️</span>
         </div>
         <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-          EduRace
+          NitroQuiz
         </h1>
         <p className="text-gray-400 mt-2">Loading...</p>
         <div className="spinner w-8 h-8 mx-auto mt-6" />

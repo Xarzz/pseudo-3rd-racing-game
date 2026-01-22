@@ -94,7 +94,7 @@ export default function LoginPage() {
             const user: User = {
                 id: `user-${Date.now()}`,
                 username: data.username,
-                email: `${data.username.toLowerCase()}@edurace.com`,
+                email: `${data.username.toLowerCase()}@nitroquiz.com`,
                 totalPoints: 0,
                 gamesPlayed: 0,
                 createdAt: new Date().toISOString(),
@@ -135,7 +135,7 @@ export default function LoginPage() {
             const guestUser: User = {
                 id: `guest-${Date.now()}`,
                 username: `Guest_${Math.floor(Math.random() * 10000)}`,
-                email: "guest@edurace.com",
+                email: "guest@nitroquiz.com",
                 totalPoints: 0,
                 gamesPlayed: 0,
                 createdAt: new Date().toISOString(),
@@ -165,7 +165,7 @@ export default function LoginPage() {
                     </div>
                     <h1 className="text-3xl font-bold mb-2">
                         <span className="bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
-                            EduRace
+                            NitroQuiz
                         </span>
                     </h1>
                     <p className="text-gray-400 text-sm">
