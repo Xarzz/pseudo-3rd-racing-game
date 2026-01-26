@@ -191,26 +191,33 @@ export default function GameSpeedPage() {
                 { name: 'jne_right_2', src: '/assets/vehicles/jne/2kanan.png' },
                 { name: 'car_1st', src: '/assets/vehicles/1rd-pov/1rd-sonic-foward-v2.png' },
 
-                // Ganesha Operation
-                { name: 'ganesha_building', src: '/assets/ganesha/ganesha_building.png' },
-
-                // Assets Kiri Jalan
+                // Assets Kiri Jalan (Sesuai Request)
                 { name: 'kiri_basmallah', src: '/assets/material/kiri_jalan/1basmallah.png' },
                 { name: 'kiri_burger', src: '/assets/material/kiri_jalan/1burger.png' },
                 { name: 'kiri_game', src: '/assets/material/kiri_jalan/1gameforsmart.png' },
+                { name: 'kiri_ganesha', src: '/assets/material/kiri_jalan/1ganesha.png' }, // Mapping '1ganesha.png'
                 { name: 'kiri_motel', src: '/assets/material/kiri_jalan/1motel.png' },
                 { name: 'kiri_ramen', src: '/assets/material/kiri_jalan/1ramen.png' },
                 { name: 'kiri_gudang', src: '/assets/material/kiri_jalan/2gudang.png' },
                 { name: 'kiri_motel2', src: '/assets/material/kiri_jalan/2motel.png' },
                 { name: 'kiri_restoran', src: '/assets/material/kiri_jalan/restoran1png.png' },
-                // Assets Kanan Jalan
+                { name: 'kiri_ruangguru', src: '/assets/material/kiri_jalan/1ruangguru.png' },
+                { name: 'kiri_ubig', src: '/assets/material/kiri_jalan/1ubig.png' },
+                { name: 'kiri_kemendikbud', src: '/assets/material/kiri_jalan/2kemendikbud.png' },
+
+                // Assets Kanan Jalan (Sesuai Request)
                 { name: 'kanan_bank', src: '/assets/material/kanan_jalan/1bank.png' },
                 { name: 'kanan_gudang', src: '/assets/material/kanan_jalan/1gudang.png' },
+                { name: 'kanan_kemendikbud', src: '/assets/material/kanan_jalan/1kemendikbud.png' },
                 { name: 'kanan_kelontong', src: '/assets/material/kanan_jalan/1tokokelontong.png' },
                 { name: 'kanan_basmallah', src: '/assets/material/kanan_jalan/2basmallah.png' },
                 { name: 'kanan_burger', src: '/assets/material/kanan_jalan/2burger.png' },
+                { name: 'kanan_gramedia', src: '/assets/material/kanan_jalan/2gramedia.png' }, // Mapping '2gramedia.png'
+                { name: 'kanan_ruangguru', src: '/assets/material/kanan_jalan/2ruangguru.png' },
+                { name: 'kanan_ubig', src: '/assets/material/kanan_jalan/2ubig.png' },
                 { name: 'kanan_motel', src: '/assets/material/kanan_jalan/3motel.png' },
-                { name: 'kanan_kaffe', src: '/assets/material/kanan_jalan/kaffe1.png' },
+                { name: 'kanan_ruangguru_2', src: '/assets/material/kanan_jalan/3ruangguru.png' },
+                { name: 'kanan_kaffa', src: '/assets/material/kanan_jalan/kaffe1.png' },
                 // Starting Sequence - Revving Animation
                 { name: 'start_1', src: '/assets/vehicles/start/1.png' },
                 { name: 'start_2', src: '/assets/vehicles/start/2.png' },
@@ -382,8 +389,18 @@ export default function GameSpeedPage() {
 
         // --- NFS STYLE CITY POPULATION ---
         const len = state.current.segments.length;
-        const leftAssetPool = ['kiri_basmallah', 'kiri_burger', 'kiri_game', 'kiri_motel', 'kiri_ramen', 'kiri_gudang', 'kiri_motel2', 'kiri_restoran', 'ganesha_building'];
-        const rightAssetPool = ['kanan_bank', 'kanan_gudang', 'kanan_kelontong', 'kanan_basmallah', 'kanan_burger', 'kanan_motel', 'kanan_kaffe', 'ganesha_building'];
+        // Strictly match user request for Left side
+        const leftAssetPool = [
+            'kiri_basmallah', 'kiri_burger', 'kiri_game', 'kiri_ganesha',
+            'kiri_motel', 'kiri_ramen', 'kiri_gudang', 'kiri_motel2', 'kiri_restoran',
+            'kiri_ruangguru', 'kiri_ubig', 'kiri_kemendikbud'
+        ];
+        // Strictly match user request for Right side
+        const rightAssetPool = [
+            'kanan_bank', 'kanan_gudang', 'kanan_kelontong', 'kanan_basmallah',
+            'kanan_burger', 'kanan_gramedia', 'kanan_motel', 'kanan_kaffa',
+            'kanan_kemendikbud', 'kanan_ruangguru', 'kanan_ubig', 'kanan_ruangguru_2'
+        ];
 
         for (let n = 20; n < len - 100; n += 25) {
             // Pick assets from specific pools based on side
