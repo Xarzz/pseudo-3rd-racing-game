@@ -58,7 +58,7 @@ interface Car {
     speed: number;
     percent: number;
     isRival?: boolean;
-    type?: 'jne' | 'truck';
+    type?: 'jne' | 'truck' | 'odong' | 'taxi';
     animTimer?: number;
     animFrame?: number;
 }
@@ -159,7 +159,11 @@ export default function GameSpeedPage() {
 
     // --- Loading Assets ---
     useEffect(() => {
+        // Reset sprites to force reload on mount/remount
+        state.current.sprites = { ...state.current.sprites };
+
         const loadAssets = async () => {
+            console.log("Starting asset load...");
             let character = null;
             try {
                 const stored = localStorage.getItem('edurace_selected_character');
@@ -252,6 +256,21 @@ export default function GameSpeedPage() {
                 { name: 'nos_16', src: '/assets/vehicles/gif/16.png' },
                 { name: 'nos_17', src: '/assets/vehicles/gif/17.png' },
                 { name: 'nos_18', src: '/assets/vehicles/gif/18.png' },
+                // Odong-odong Assets
+                { name: 'odong_straight', src: '/assets/vehicles/odong/odong_straight.png' },
+                { name: 'odong_left', src: '/assets/vehicles/odong/odong_left.png' },
+                { name: 'odong_right', src: '/assets/vehicles/odong/odong_right.png' },
+                // Odong-odong Animation Frames (Frame 2)
+                { name: '1odong_straight', src: '/assets/vehicles/odong/1odong_straight.png' },
+                { name: '1odong_left', src: '/assets/vehicles/odong/1odong_left.png' },
+                { name: '1odong_right', src: '/assets/vehicles/odong/1odong_right.png' },
+                // Taxi Assets
+                { name: 'taxi_straight', src: '/assets/vehicles/taxi/taxi_straight.png' },
+                { name: 'taxi_left', src: '/assets/vehicles/taxi/taxi_left.png' },
+                { name: 'taxi_right', src: '/assets/vehicles/taxi/taxi_right.png' },
+                { name: '1taxi_straight', src: '/assets/vehicles/taxi/1taxi_straight.png' },
+                { name: '1taxi_left', src: '/assets/vehicles/taxi/1taxi_left.png' },
+                { name: '1taxi_right', src: '/assets/vehicles/taxi/1taxi_right.png' },
             ];
 
             const promises = assetList.map(item => new Promise<void>((resolve) => {
@@ -290,6 +309,12 @@ export default function GameSpeedPage() {
             }));
 
             await Promise.all(promises);
+            console.log("Assets loaded. Taxi sprites:", {
+                taxi_straight: !!state.current.sprites.taxi_straight,
+                taxi_left: !!state.current.sprites.taxi_left,
+                taxi_right: !!state.current.sprites.taxi_right,
+                '1taxi_straight': !!state.current.sprites['1taxi_straight'],
+            });
             setAssetsLoaded(true);
         };
         loadAssets();
@@ -387,39 +412,77 @@ export default function GameSpeedPage() {
         addStraight(ROAD_CONF.LENGTH.SHORT);
         addDownhillToEnd(200);
 
-        // --- NFS STYLE CITY POPULATION ---
+        // --- ORDERED CITY POPULATION (Like Real City Streets) ---
         const len = state.current.segments.length;
-        // Strictly match user request for Left side
-        const leftAssetPool = [
+
+        // Ordered list of buildings for LEFT side (will cycle through in order)
+        const leftBuildingSequence = [
             'kiri_basmallah', 'kiri_burger', 'kiri_game', 'kiri_ganesha',
-            'kiri_motel', 'kiri_ramen', 'kiri_gudang', 'kiri_motel2', 'kiri_restoran',
-            'kiri_ruangguru', 'kiri_ubig', 'kiri_kemendikbud'
+            'kiri_motel', 'kiri_ramen', 'kiri_gudang', 'kiri_motel2',
+            'kiri_restoran', 'kiri_ruangguru', 'kiri_ubig', 'kiri_kemendikbud'
         ];
-        // Strictly match user request for Right side
-        const rightAssetPool = [
+
+        // Ordered list of buildings for RIGHT side (will cycle through in order)
+        const rightBuildingSequence = [
             'kanan_bank', 'kanan_gudang', 'kanan_kelontong', 'kanan_basmallah',
             'kanan_burger', 'kanan_gramedia', 'kanan_motel', 'kanan_kaffa',
             'kanan_kemendikbud', 'kanan_ruangguru', 'kanan_ubig', 'kanan_ruangguru_2'
         ];
 
-        for (let n = 20; n < len - 100; n += 25) {
-            // Pick assets from specific pools based on side
-            const leftAsset = Util.randomChoice(leftAssetPool);
-            const rightAsset = Util.randomChoice(rightAssetPool);
+        // Configuration for spacing
+        const BUILDING_SPACING = 50; // Segments between each building (increased for no overlap)
+        const START_SEGMENT = 30;    // Start placing buildings after this segment
+        const END_BUFFER = 150;      // Stop placing buildings before end
 
-            const leftSprite = state.current.sprites[leftAsset];
-            const rightSprite = state.current.sprites[rightAsset];
+        let leftIndex = 0;
+        let rightIndex = 0;
 
-            if (leftSprite) state.current.segments[n].sprites.push({ source: leftSprite, offset: -2.2, offsetY: -1 });
-            if (rightSprite) state.current.segments[n].sprites.push({ source: rightSprite, offset: 2.2, offsetY: -1 });
+        // Place buildings in ORDER with consistent spacing
+        for (let n = START_SEGMENT; n < len - END_BUFFER; n += BUILDING_SPACING) {
+            // Get the next building in sequence (cycles back to start)
+            const leftAssetName = leftBuildingSequence[leftIndex % leftBuildingSequence.length];
+            const rightAssetName = rightBuildingSequence[rightIndex % rightBuildingSequence.length];
 
-            // Add Zebra Cross & Traffic Lights occasionally
-            if (n % 800 === 0) {
-                for (let j = 0; j < 12; j++) {
-                    if (state.current.segments[n + j]) state.current.segments[n + j].zebra = true;
+            const leftSprite = state.current.sprites[leftAssetName];
+            const rightSprite = state.current.sprites[rightAssetName];
+
+            // Place LEFT building
+            if (leftSprite && state.current.segments[n]) {
+                state.current.segments[n].sprites.push({
+                    source: leftSprite,
+                    offset: -2.5,  // Slightly further from road
+                    offsetY: -1
+                });
+            }
+
+            // Place RIGHT building (offset by half spacing for staggered look)
+            const rightSegIdx = Math.min(n + Math.floor(BUILDING_SPACING / 2), len - END_BUFFER - 1);
+            if (rightSprite && state.current.segments[rightSegIdx]) {
+                state.current.segments[rightSegIdx].sprites.push({
+                    source: rightSprite,
+                    offset: 2.5,  // Slightly further from road
+                    offsetY: -1
+                });
+            }
+
+            leftIndex++;
+            rightIndex++;
+
+            // Add Traffic Lights at intersections (every 4 buildings)
+            if (leftIndex % 4 === 0) {
+                // Add zebra crossing
+                for (let j = 0; j < 10; j++) {
+                    if (state.current.segments[n + j]) {
+                        state.current.segments[n + j].zebra = true;
+                    }
                 }
-                const lightSeg = state.current.segments[n];
-                if (lightSeg) lightSeg.sprites.push({ source: state.current.sprites.traffic_light, offset: -1.8 });
+                // Add traffic light
+                if (state.current.segments[n]) {
+                    state.current.segments[n].sprites.push({
+                        source: state.current.sprites.traffic_light,
+                        offset: -1.6
+                    });
+                }
             }
         }
 
@@ -431,17 +494,35 @@ export default function GameSpeedPage() {
             const z = (n + 1) * (len * SEGMENT_LENGTH / 20);
             const offset = Util.randomChoice([-0.8, -0.4, 0.4, 0.8]);
             const speed = MAX_SPEED / 4 + Math.random() * (MAX_SPEED / 2);
-            // Randomly choose between JNE (animated) and Truck 2 (static)
-            const isJne = Math.random() > 0.5;
+
+            // Random choice: 0=Truck, 1=JNE, 2=Odong, 3=Taxi
+            const vehicleTypeRnd = Math.random();
+            let vehicleType: 'truck' | 'jne' | 'odong' | 'taxi' = 'truck';
+            let vehicleSprite = state.current.sprites.truck2;
+
+            if (vehicleTypeRnd < 0.25) {
+                vehicleType = 'truck';
+                vehicleSprite = state.current.sprites.truck2;
+            } else if (vehicleTypeRnd < 0.5) {
+                vehicleType = 'jne';
+                vehicleSprite = state.current.sprites.jne_straight_1;
+            } else if (vehicleTypeRnd < 0.75) {
+                vehicleType = 'odong';
+                vehicleSprite = state.current.sprites.odong_straight;
+            } else {
+                vehicleType = 'taxi';
+                vehicleSprite = state.current.sprites.taxi_straight || state.current.sprites.truck2;
+                console.log("Spawning TAXI - sprite exists:", !!state.current.sprites.taxi_straight);
+            }
 
             const car: Car = {
                 offset: offset,
                 z: z,
-                sprite: isJne ? state.current.sprites.jne_straight_1 : state.current.sprites.truck2,
+                sprite: vehicleSprite,
                 speed: speed,
                 percent: 0,
-                type: isJne ? 'jne' : 'truck',
-                animTimer: isJne ? Math.random() * 100 : 0,
+                type: vehicleType,
+                animTimer: (vehicleType === 'jne' || vehicleType === 'odong' || vehicleType === 'taxi') ? Math.random() * 100 : 0,
                 animFrame: 0
             };
             state.current.cars.push(car);
@@ -614,7 +695,8 @@ export default function GameSpeedPage() {
         let worldWidth = carWorldWidth; // NPC mobil standar
         if (name === 'traffic_light') worldWidth = carWorldWidth * 1.2;
         else if (name === 'truck1' || name === 'truck2') worldWidth = carWorldWidth * 2.2; // Truk jauh lebih besar
-        else if (name === 'car_rival' || name === 'foward-opponent') worldWidth = carWorldWidth; // Rival sama dengan player
+        else if (name?.includes('car_rival') || name === 'foward-opponent') worldWidth = carWorldWidth; // Rival sama dengan player
+        else if (name?.includes('odong') || name?.includes('taxi')) worldWidth = carWorldWidth * 1.5; // Slightly larger than standard car
         else if (name?.includes('kiri_') || name?.includes('kanan_')) worldWidth = carWorldWidth * 12; // Bangunan sangat besar
         else if (name === 'obstacle' || name === 'construction') worldWidth = carWorldWidth * 0.7; // Objek jalanan kecil
 
@@ -994,6 +1076,56 @@ export default function GameSpeedPage() {
                     car.sprite = car.animFrame === 0 ? state.current.sprites.jne_right_1 : state.current.sprites.jne_right_2;
                 } else {
                     car.sprite = car.animFrame === 0 ? state.current.sprites.jne_straight_1 : state.current.sprites.jne_straight_2;
+                }
+            } else if (car.type === 'odong') {
+                // Odong-odong Animation Logic
+                car.animTimer = (car.animTimer || 0) + dt * 1000;
+                if (car.animTimer > 150) { // Slightly slower animation for odong (150ms)
+                    car.animTimer = 0;
+                    car.animFrame = car.animFrame === 0 ? 1 : 0;
+                }
+
+                // Odong-odong Directional Logic
+                const currentSeg = findSegment(car.z);
+                const curve = currentSeg.curve;
+
+                if (curve < -0.5) {
+                    const s1 = state.current.sprites.odong_left;
+                    const s2 = state.current.sprites['1odong_left'];
+                    car.sprite = (car.animFrame === 1 && s2) ? s2 : s1;
+                } else if (curve > 0.5) {
+                    const s1 = state.current.sprites.odong_right;
+                    const s2 = state.current.sprites['1odong_right'];
+                    car.sprite = (car.animFrame === 1 && s2) ? s2 : s1;
+                } else {
+                    const s1 = state.current.sprites.odong_straight;
+                    const s2 = state.current.sprites['1odong_straight'];
+                    car.sprite = (car.animFrame === 1 && s2) ? s2 : s1;
+                }
+            } else if (car.type === 'taxi') {
+                // Taxi Animation Logic
+                car.animTimer = (car.animTimer || 0) + dt * 1000;
+                if (car.animTimer > 150) { // Cycle every 150ms
+                    car.animTimer = 0;
+                    car.animFrame = car.animFrame === 0 ? 1 : 0;
+                }
+
+                // Taxi Directional Logic
+                const currentSeg = findSegment(car.z);
+                const curve = currentSeg.curve;
+
+                if (curve < -0.5) {
+                    const s1 = state.current.sprites.taxi_left || state.current.sprites.taxi_straight || state.current.sprites.truck2;
+                    const s2 = state.current.sprites['1taxi_left'];
+                    car.sprite = (car.animFrame === 1 && s2) ? s2 : s1;
+                } else if (curve > 0.5) {
+                    const s1 = state.current.sprites.taxi_right || state.current.sprites.taxi_straight || state.current.sprites.truck2;
+                    const s2 = state.current.sprites['1taxi_right'];
+                    car.sprite = (car.animFrame === 1 && s2) ? s2 : s1;
+                } else {
+                    const s1 = state.current.sprites.taxi_straight || state.current.sprites.truck2;
+                    const s2 = state.current.sprites['1taxi_straight'];
+                    car.sprite = (car.animFrame === 1 && s2) ? s2 : s1;
                 }
             }
         }
