@@ -122,6 +122,8 @@ export default function GameSpeedPage() {
     const [mobileOrientationChoice, setMobileOrientationChoice] = useState<'portrait' | 'landscape' | null>(null);
 
     const usePCLayout = !isMobile || mobileOrientationChoice === 'landscape';
+    const isMobileLandscape = isMobile && mobileOrientationChoice === 'landscape';
+    const isMobilePortrait = isMobile && mobileOrientationChoice === 'portrait';
 
     // Touch/Swipe refs for mobile controls
     const touchStartX = useRef<number | null>(null);
@@ -1506,30 +1508,21 @@ export default function GameSpeedPage() {
             }
 
             if (mappedTouchEnded) {
-                steeringTouchId.current = null;
-                touchStartX.current = null;
-                touchCurrentX.current = null;
-                state.current.analogSteer = 0;
-                state.current.keyLeft = false;
-                state.current.keyRight = false;
-            }
-        };
+                // Only add swipe handlers if mobile AND in portrait mode
+                if (isMobile && mobileOrientationChoice === 'portrait') {
+                    window.addEventListener('touchstart', handleTouchStart, { passive: false });
+                    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+                    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+                    window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+                }
 
-        // Only add swipe handlers if mobile
-        if (isMobile) {
-            window.addEventListener('touchstart', handleTouchStart, { passive: false });
-            window.addEventListener('touchmove', handleTouchMove, { passive: false });
-            window.addEventListener('touchend', handleTouchEnd, { passive: false });
-            window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-        }
-
-        return () => {
-            window.removeEventListener('touchstart', handleTouchStart);
-            window.removeEventListener('touchmove', handleTouchMove);
-            window.removeEventListener('touchend', handleTouchEnd);
-            window.removeEventListener('touchcancel', handleTouchEnd);
-        };
-    }, [isMobile]);
+                return () => {
+                    window.removeEventListener('touchstart', handleTouchStart);
+                    window.removeEventListener('touchmove', handleTouchMove);
+                    window.removeEventListener('touchend', handleTouchEnd);
+                    window.removeEventListener('touchcancel', handleTouchEnd);
+                };
+            }, [isMobile, mobileOrientationChoice]);
 
     // Resize handling with mobile detection and aspect ratio
     useEffect(() => {
@@ -1948,16 +1941,16 @@ export default function GameSpeedPage() {
                                 <div style={{
                                     backgroundColor: 'rgba(0, 0, 0, 0.65)',
                                     backdropFilter: 'blur(15px)',
-                                    padding: usePCLayout ? '1.5rem 2.5rem' : '0.4rem 0.6rem',
+                                    padding: isMobileLandscape ? '1rem 1.5rem' : (usePCLayout ? '1.5rem 2.5rem' : '0.4rem 0.6rem'),
                                     borderRadius: usePCLayout ? '2rem' : '0.8rem',
                                     border: '1px solid rgba(255, 255, 255, 0.15)',
                                     flex: usePCLayout ? 'none' : 1,
                                     textAlign: usePCLayout ? 'left' : 'center'
                                 }}>
-                                    <div style={{ fontSize: usePCLayout ? '10px' : '7px', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3em', fontWeight: 900, marginBottom: '0.1rem' }}>Speedometer</div>
+                                    <div style={{ fontSize: isMobileLandscape ? '9px' : (usePCLayout ? '10px' : '7px'), color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3em', fontWeight: 900, marginBottom: '0.1rem' }}>Speedometer</div>
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', justifyContent: usePCLayout ? 'flex-start' : 'center' }}>
                                         <span style={{
-                                            fontSize: usePCLayout ? '4.5rem' : '1.75rem',
+                                            fontSize: isMobileLandscape ? '3rem' : (usePCLayout ? '4.5rem' : '1.75rem'),
                                             fontWeight: 900,
                                             fontFamily: 'var(--font-rajdhani)',
                                             color: '#fff',
@@ -2005,7 +1998,7 @@ export default function GameSpeedPage() {
                                 <div style={{
                                     backgroundColor: 'rgba(0, 0, 0, 0.65)',
                                     backdropFilter: 'blur(15px)',
-                                    padding: usePCLayout ? '0.6rem 1rem' : '0.4rem 0.75rem',
+                                    padding: isMobileLandscape ? '0.5rem 1rem' : (usePCLayout ? '0.6rem 1rem' : '0.4rem 0.75rem'),
                                     borderRadius: usePCLayout ? '1.25rem' : '0.8rem',
                                     border: '1px solid rgba(255, 255, 255, 0.1)',
                                     display: 'flex',
@@ -2013,24 +2006,24 @@ export default function GameSpeedPage() {
                                     gap: usePCLayout ? '0.75rem' : '0.5rem',
                                     flex: usePCLayout ? 'none' : 1
                                 }}>
-                                    <span style={{ color: '#60a5fa', fontWeight: 900, fontSize: usePCLayout ? '0.7rem' : '0.6rem', textShadow: '0 0 10px rgba(59, 130, 246, 0.8)' }}>NOS</span>
-                                    <div style={{ flex: 1, minWidth: usePCLayout ? '80px' : '30px', height: usePCLayout ? '6px' : '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <span style={{ color: '#60a5fa', fontWeight: 900, fontSize: isMobileLandscape ? '0.8rem' : (usePCLayout ? '0.7rem' : '0.6rem'), textShadow: '0 0 10px rgba(59, 130, 246, 0.8)' }}>NOS</span>
+                                    <div style={{ flex: 1, minWidth: isMobileLandscape ? '100px' : (usePCLayout ? '80px' : '30px'), height: usePCLayout ? '6px' : '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
                                         <div style={{ width: `${stats.nos}%`, height: '100%', backgroundColor: '#3b82f6', boxShadow: '0 0 10px #3b82f6' }} />
                                     </div>
                                 </div>
                                 <div style={{
                                     backgroundColor: 'rgba(0, 0, 0, 0.65)',
                                     backdropFilter: 'blur(15px)',
-                                    padding: isMobile ? '0.4rem 0.75rem' : '0.6rem 1rem',
-                                    borderRadius: isMobile ? '0.8rem' : '1.25rem',
+                                    padding: isMobileLandscape ? '0.5rem 1rem' : (isMobile ? '0.4rem 0.75rem' : '0.6rem 1rem'),
+                                    borderRadius: usePCLayout ? '1.25rem' : '0.8rem',
                                     border: '1px solid rgba(255, 255, 255, 0.1)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.35rem',
                                     flex: 'none'
                                 }}>
-                                    <span style={{ color: '#4ade80', fontWeight: 900, fontSize: usePCLayout ? '0.7rem' : '0.6rem', textShadow: '0 0 10px rgba(74, 222, 128, 0.8)' }}>LAP</span>
-                                    <span style={{ fontSize: usePCLayout ? '1.25rem' : '0.8rem', fontWeight: 900, color: '#fff' }}>{stats.lap}/{stats.totalLaps}</span>
+                                    <span style={{ color: '#4ade80', fontWeight: 900, fontSize: isMobileLandscape ? '0.8rem' : (usePCLayout ? '0.7rem' : '0.6rem'), textShadow: '0 0 10px rgba(74, 222, 128, 0.8)' }}>LAP</span>
+                                    <span style={{ fontSize: isMobileLandscape ? '1.5rem' : (usePCLayout ? '1.25rem' : '0.8rem'), fontWeight: 900, color: '#fff' }}>{stats.lap}/{stats.totalLaps}</span>
                                 </div>
                             </div>
                         </div>
@@ -2161,13 +2154,15 @@ export default function GameSpeedPage() {
                                 <div style={{ display: 'flex', gap: '0.75rem', pointerEvents: 'auto' }}>
                                     <button
                                         style={{
-                                            width: '5rem', height: '5rem',
+                                            width: isMobileLandscape ? '6.5rem' : '5rem',
+                                            height: isMobileLandscape ? '6.5rem' : '5rem',
                                             backgroundColor: 'rgba(255, 255, 255, 0.1)',
                                             backdropFilter: 'blur(10px)',
                                             borderRadius: '50%',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            border: isMobileLandscape ? '3px solid rgba(255, 255, 255, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             cursor: 'pointer', outline: 'none',
+                                            transform: isMobileLandscape ? 'scale(1.1)' : 'none'
                                         }}
                                         onTouchStart={(e) => { e.preventDefault(); state.current.keyLeft = true; }}
                                         onTouchEnd={(e) => { e.preventDefault(); state.current.keyLeft = false; }}
@@ -2175,17 +2170,19 @@ export default function GameSpeedPage() {
                                         onMouseUp={() => { state.current.keyLeft = false; }}
                                         onMouseLeave={() => { state.current.keyLeft = false; }}
                                     >
-                                        <span style={{ fontSize: '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>◀</span>
+                                        <span style={{ fontSize: isMobileLandscape ? '2rem' : '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>◀</span>
                                     </button>
                                     <button
                                         style={{
-                                            width: '5rem', height: '5rem',
+                                            width: isMobileLandscape ? '6.5rem' : '5rem',
+                                            height: isMobileLandscape ? '6.5rem' : '5rem',
                                             backgroundColor: 'rgba(255, 255, 255, 0.1)',
                                             backdropFilter: 'blur(10px)',
                                             borderRadius: '50%',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            border: isMobileLandscape ? '3px solid rgba(255, 255, 255, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             cursor: 'pointer', outline: 'none',
+                                            transform: isMobileLandscape ? 'scale(1.1)' : 'none'
                                         }}
                                         onTouchStart={(e) => { e.preventDefault(); state.current.keyRight = true; }}
                                         onTouchEnd={(e) => { e.preventDefault(); state.current.keyRight = false; }}
@@ -2193,23 +2190,26 @@ export default function GameSpeedPage() {
                                         onMouseUp={() => { state.current.keyRight = false; }}
                                         onMouseLeave={() => { state.current.keyRight = false; }}
                                     >
-                                        <span style={{ fontSize: '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>▶</span>
+                                        <span style={{ fontSize: isMobileLandscape ? '2rem' : '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>▶</span>
                                     </button>
                                 </div>
 
                                 {/* Right Controls (Action) */}
-                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
+                                <div style={{ display: 'flex', gap: isMobileLandscape ? '1rem' : '0.75rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
                                     {/* Brake Button - Compact */}
                                     <button
                                         style={{
-                                            width: '4.5rem', height: '4.5rem',
+                                            width: isMobileLandscape ? '6rem' : '4.5rem',
+                                            height: isMobileLandscape ? '6rem' : '4.5rem',
                                             backgroundColor: 'rgba(239, 68, 68, 0.1)',
                                             backdropFilter: 'blur(8px)',
                                             borderRadius: '50%',
-                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            border: isMobileLandscape ? '3px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.3)',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            cursor: 'pointer', color: '#ef4444', fontWeight: 900, fontSize: '0.6rem',
-                                            textShadow: '0 0 8px rgba(239, 68, 68, 0.8)'
+                                            cursor: 'pointer', color: '#ef4444', fontWeight: 900,
+                                            fontSize: isMobileLandscape ? '0.8rem' : '0.6rem',
+                                            textShadow: '0 0 8px rgba(239, 68, 68, 0.8)',
+                                            transform: isMobileLandscape ? 'scale(1.1)' : 'none'
                                         }}
                                         onTouchStart={(e) => { e.preventDefault(); state.current.keySlower = true; }}
                                         onTouchEnd={(e) => { e.preventDefault(); state.current.keySlower = false; }}
@@ -2223,12 +2223,16 @@ export default function GameSpeedPage() {
                                     {/* Gas Button - Compact Circle */}
                                     <button
                                         style={{
-                                            width: '7.5rem', height: '7.5rem',
+                                            width: isMobileLandscape ? '9rem' : '7.5rem',
+                                            height: isMobileLandscape ? '9rem' : '7.5rem',
                                             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                             borderRadius: '50%',
-                                            border: '3px solid rgba(255, 255, 255, 0.1)',
+                                            border: isMobileLandscape ? '3px solid rgba(255, 255, 255, 0.3)' : '3px solid rgba(255, 255, 255, 0.1)',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            cursor: 'pointer', color: 'white', fontWeight: 900, fontSize: '1.25rem',
+                                            cursor: 'pointer', color: 'white', fontWeight: 900,
+                                            fontSize: isMobileLandscape ? '1.8rem' : '1.25rem',
+                                            transform: isMobileLandscape ? 'scale(1.1)' : 'none',
+                                            boxShadow: isMobileLandscape ? '0 0 30px rgba(16, 185, 129, 0.5)' : 'none'
                                         }}
                                         onTouchStart={(e) => { e.preventDefault(); state.current.keyFaster = true; }}
                                         onTouchEnd={(e) => { e.preventDefault(); state.current.keyFaster = false; }}
@@ -2242,12 +2246,16 @@ export default function GameSpeedPage() {
                                     {/* NOS Button - Compact */}
                                     <button
                                         style={{
-                                            width: '5rem', height: '5rem',
+                                            width: isMobileLandscape ? '7rem' : '5rem',
+                                            height: isMobileLandscape ? '7rem' : '5rem',
                                             background: stats.nos > 0 ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'rgba(255, 255, 255, 0.05)',
                                             borderRadius: '50%',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            border: isMobileLandscape ? '3px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.1)',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             cursor: 'pointer', opacity: stats.nos > 0 ? 1 : 0.5, color: 'white', fontWeight: 900,
+                                            fontSize: isMobileLandscape ? '1rem' : '0.8rem',
+                                            transform: isMobileLandscape ? 'scale(1.1)' : 'none',
+                                            boxShadow: stats.nos > 0 && isMobileLandscape ? '0 0 30px rgba(59, 130, 246, 0.5)' : 'none'
                                         }}
                                         onTouchStart={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
                                         onTouchEnd={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
@@ -2274,29 +2282,29 @@ export default function GameSpeedPage() {
 
             {/* Preparation Overlay - Citynight Premium Style */}
             {mounted && assetsLoaded && gameState === 'preparation' && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.9)', color: 'white', fontFamily: 'var(--font-rajdhani)' }}>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.9)', color: 'white', fontFamily: 'var(--font-rajdhani)', padding: isMobileLandscape ? '1rem' : '0' }}>
                     <div style={{
                         backgroundColor: '#0f172a',
-                        padding: usePCLayout ? '3.5rem' : '1.5rem',
+                        padding: isMobileLandscape ? '1.5rem 3.5rem' : (usePCLayout ? '3.5rem' : '1.5rem'),
                         borderRadius: usePCLayout ? '2rem' : '1.5rem',
                         border: '2px solid #3b82f6',
                         textAlign: 'center',
                         boxShadow: '0 0 60px rgba(59, 130, 246, 0.3)',
-                        maxWidth: '38rem',
+                        maxWidth: isMobileLandscape ? '90%' : '38rem',
                         width: '90%'
                     }}>
-                        <div style={{ fontSize: usePCLayout ? '6rem' : '3rem', marginBottom: '0.5rem' }}>🏁</div>
-                        <h1 style={{ fontSize: usePCLayout ? '4rem' : '2.5rem', fontWeight: 950, fontStyle: 'italic', marginBottom: '0.25rem', color: '#fff' }}>GET READY!</h1>
-                        <p style={{ color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4em', marginBottom: usePCLayout ? '3rem' : '1.5rem', fontSize: usePCLayout ? '1rem' : '0.7rem' }}>City Night Protocol Active</p>
+                        <div style={{ fontSize: isMobileLandscape ? '2.5rem' : (usePCLayout ? '6rem' : '3rem'), marginBottom: '0.5rem' }}>🏁</div>
+                        <h1 style={{ fontSize: isMobileLandscape ? '2.2rem' : (usePCLayout ? '4rem' : '2.5rem'), fontWeight: 950, fontStyle: 'italic', marginBottom: '0.25rem', color: '#fff' }}>GET READY!</h1>
+                        <p style={{ color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4em', marginBottom: isMobileLandscape ? '1rem' : (usePCLayout ? '3rem' : '1.5rem'), fontSize: usePCLayout ? '1rem' : '0.7rem' }}>City Night Protocol Active</p>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: usePCLayout ? '1.5rem' : '0.75rem', marginBottom: usePCLayout ? '3rem' : '1.5rem' }}>
-                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: usePCLayout ? '1.5rem' : '1rem', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: usePCLayout ? '1.5rem' : '0.75rem', marginBottom: isMobileLandscape ? '1rem' : (usePCLayout ? '3rem' : '1.5rem') }}>
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: isMobileLandscape ? '0.75rem' : (usePCLayout ? '1.5rem' : '1rem'), borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                                 <div style={{ fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.25rem' }}>Distance</div>
-                                <div style={{ fontSize: usePCLayout ? '2.5rem' : '1.5rem', fontWeight: 900, color: '#3b82f6' }}>{stats.totalLaps} LAPS</div>
+                                <div style={{ fontSize: isMobileLandscape ? '1.2rem' : (usePCLayout ? '2.5rem' : '1.5rem'), fontWeight: 900, color: '#3b82f6' }}>{stats.totalLaps} LAPS</div>
                             </div>
-                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: usePCLayout ? '1.5rem' : '1rem', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: isMobileLandscape ? '0.75rem' : (usePCLayout ? '1.5rem' : '1rem'), borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                                 <div style={{ fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.25rem' }}>Nitro Fuel</div>
-                                <div style={{ fontSize: usePCLayout ? '2.5rem' : '1.5rem', fontWeight: 900, color: '#10b981' }}>{stats.nos}%</div>
+                                <div style={{ fontSize: isMobileLandscape ? '1.2rem' : (usePCLayout ? '2.5rem' : '1.5rem'), fontWeight: 900, color: '#10b981' }}>{stats.nos}%</div>
                             </div>
                         </div>
 
@@ -2316,12 +2324,12 @@ export default function GameSpeedPage() {
                             }}
                             style={{
                                 width: '100%',
-                                padding: usePCLayout ? '1.75rem 0' : '1.25rem 0',
+                                padding: isMobileLandscape ? '1rem 0' : (usePCLayout ? '1.75rem 0' : '1.25rem 0'),
                                 background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                                 color: '#fff',
                                 borderRadius: '1.25rem',
                                 fontWeight: 900,
-                                fontSize: usePCLayout ? '1.75rem' : '1.25rem',
+                                fontSize: isMobileLandscape ? '1.2rem' : (usePCLayout ? '1.75rem' : '1.25rem'),
                                 cursor: 'pointer',
                                 border: '2px solid rgba(255, 255, 255, 0.3)',
                                 boxShadow: '0 0 30px rgba(59, 130, 246, 0.4)'
