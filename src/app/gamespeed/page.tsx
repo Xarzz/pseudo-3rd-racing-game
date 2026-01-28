@@ -119,7 +119,6 @@ export default function GameSpeedPage() {
     const [mounted, setMounted] = useState(false);
     const [aspectRatio, setAspectRatio] = useState(1); // width/height ratio for responsive sizing
     const [miniMapMinimized, setMiniMapMinimized] = useState(false);
-    const [orientationChoice, setOrientationChoice] = useState<'portrait' | 'landscape' | null>(null);
 
     // Touch/Swipe refs for mobile controls
     const touchStartX = useRef<number | null>(null);
@@ -1547,19 +1546,17 @@ export default function GameSpeedPage() {
             const isSmallScreen = w < 768;
             const detectedMobile = (isSmallScreen || isPortrait) && hasTouchSupport;
 
-            // If user has already chosen, we respect that for the UI layout
-            if (orientationChoice === 'landscape') {
-                setIsMobile(false);
-            } else if (orientationChoice === 'portrait') {
-                setIsMobile(true);
-            } else {
-                setIsMobile(detectedMobile);
+            setIsMobile(detectedMobile);
+
+            // On mobile, auto-forward is always enabled (car drives automatically)
+            if (detectedMobile && gameState === 'playing') {
+                state.current.keyFaster = true;
             }
         };
         window.addEventListener('resize', setSize);
         if (mounted) setSize();
         return () => window.removeEventListener('resize', setSize);
-    }, [mounted, gameState, orientationChoice]);
+    }, [mounted, gameState]);
 
     // Mobile auto-forward: Keep gas pressed while playing on mobile
     useEffect(() => {
@@ -1803,81 +1800,6 @@ export default function GameSpeedPage() {
             filter: (stats.speed > 150 ? `blur(${((stats.speed - 150) / 60) + (state.current.keyBoost && stats.nos > 0 ? 2 : 0)}px) ` : (state.current.keyBoost && stats.nos > 0 ? 'blur(2px) ' : '')) + 'contrast(1.05) brightness(1) saturate(1.1)', // Milder Lighter Blur
             transition: 'filter 0.4s ease'
         }}>
-            {/* Orientation Selection Overlay */}
-            {assetsLoaded && isMobile && !orientationChoice && (
-                <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    backgroundColor: 'rgba(2, 6, 23, 0.95)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 3000,
-                    backdropFilter: 'blur(10px)',
-                    color: 'white',
-                    fontFamily: 'var(--font-rajdhani)'
-                }}>
-                    <h2 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '2rem', textAlign: 'center', textShadow: '0 0 20px rgba(59, 130, 246, 0.5)' }}>CHOOSE YOUR PLAYSTYLE</h2>
-                    <div style={{ display: 'flex', gap: '2rem', width: '90%', maxWidth: '500px' }}>
-                        <button
-                            onClick={() => setOrientationChoice('portrait')}
-                            style={{
-                                flex: 1,
-                                padding: '2rem 1rem',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                border: '2px solid rgba(255, 255, 255, 0.1)',
-                                borderRadius: '1.5rem',
-                                color: 'white',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '1rem',
-                                transition: 'all 0.3s ease'
-                            }}
-                        >
-                            <span style={{ fontSize: '3rem' }}>📱</span>
-                            <span style={{ fontWeight: 900, fontSize: '1.2rem', color: '#10b981' }}>PORTRAIT</span>
-                            <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>Adaptive Mobile HUD</span>
-                        </button>
-                        <button
-                            onClick={async () => {
-                                try {
-                                    // Try to enter fullscreen and lock orientation for landscape
-                                    if (document.documentElement.requestFullscreen) {
-                                        await document.documentElement.requestFullscreen();
-                                    }
-                                    if (window.screen.orientation && window.screen.orientation.lock) {
-                                        await window.screen.orientation.lock('landscape');
-                                    }
-                                } catch (e) {
-                                    console.log("Orientation lock not supported:", e);
-                                }
-                                setOrientationChoice('landscape');
-                            }}
-                            style={{
-                                flex: 1,
-                                padding: '2rem 1rem',
-                                backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                                border: '2px solid #3b82f6',
-                                borderRadius: '1.5rem',
-                                color: 'white',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '1rem',
-                                transition: 'all 0.3s ease'
-                            }}
-                        >
-                            <span style={{ fontSize: '3rem' }}>🎮</span>
-                            <span style={{ fontWeight: 900, fontSize: '1.2rem', color: '#60a5fa' }}>LANDSCAPE</span>
-                            <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>Full PC HUD & Controls</span>
-                        </button>
-                    </div>
-                </div>
-            )}
             {/* Main Game Canvas */}
             <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
 
