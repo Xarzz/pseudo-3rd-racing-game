@@ -1451,6 +1451,9 @@ export default function GameSpeedPage() {
     // Touch/Swipe controls for mobile steering (Multi-touch support)
     useEffect(() => {
         const handleTouchStart = (e: TouchEvent) => {
+            // Prevent browser gestures
+            if (e.touches.length > 1) e.preventDefault();
+
             // If we're already steering, ignore new touches
             if (steeringTouchId.current !== null) return;
 
@@ -1462,12 +1465,16 @@ export default function GameSpeedPage() {
                     steeringTouchId.current = touch.identifier;
                     touchStartX.current = touch.clientX;
                     touchCurrentX.current = touch.clientX;
+                    // e.preventDefault(); // Don't always prevent start, but consider it
                     break;
                 }
             }
         };
 
         const handleTouchMove = (e: TouchEvent) => {
+            // ALWAYS prevent default in move to stop scrolling/zooming while playing
+            if (e.cancelable) e.preventDefault();
+
             if (steeringTouchId.current === null) return;
 
             // Find the touch that started our steering
@@ -2148,9 +2155,11 @@ export default function GameSpeedPage() {
                                             transition: 'all 0.1s ease',
                                             transform: state.current.keyBoost ? 'scale(0.92)' : 'scale(1)',
                                             fontFamily: 'var(--font-rajdhani)',
+                                            touchAction: 'none'
                                         }}
-                                        onTouchStart={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
-                                        onTouchEnd={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
+                                        onPointerDown={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
+                                        onPointerUp={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
+                                        onPointerCancel={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
                                     >
                                         <span style={{ fontSize: '1.2rem', fontStyle: 'italic', letterSpacing: '-0.05em' }}>NITRO</span>
                                         <div style={{ width: '60%', height: '2px', backgroundColor: 'rgba(255,255,255,0.4)', marginTop: '2px' }} />
@@ -2180,9 +2189,11 @@ export default function GameSpeedPage() {
                                             transition: 'all 0.1s ease',
                                             transform: state.current.keySlower ? 'scale(0.92)' : 'scale(1)',
                                             fontFamily: 'var(--font-rajdhani)',
+                                            touchAction: 'none'
                                         }}
-                                        onTouchStart={(e) => { e.preventDefault(); state.current.keySlower = true; }}
-                                        onTouchEnd={(e) => { e.preventDefault(); state.current.keySlower = false; }}
+                                        onPointerDown={(e) => { e.preventDefault(); state.current.keySlower = true; }}
+                                        onPointerUp={(e) => { e.preventDefault(); state.current.keySlower = false; }}
+                                        onPointerCancel={(e) => { e.preventDefault(); state.current.keySlower = false; }}
                                     >
                                         <span style={{ fontSize: '1.2rem', fontStyle: 'italic', letterSpacing: '0.05em' }}>BRAKE</span>
                                         <div style={{ width: '60%', height: '2px', backgroundColor: state.current.keySlower ? 'rgba(255,255,255,0.4)' : 'rgba(239,68,68,0.4)', marginTop: '2px' }} />
