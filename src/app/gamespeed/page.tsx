@@ -317,14 +317,12 @@ export default function GameSpeedPage() {
             }));
 
             await Promise.all(promises);
-            console.log("Assets loaded. Taxi sprites:", {
-                bg: !!state.current.sprites.bg,
-                bg_mobile: !!state.current.sprites.bg_mobile,
-                taxi_straight: !!state.current.sprites.taxi_straight,
-                taxi_left: !!state.current.sprites.taxi_left,
-                taxi_right: !!state.current.sprites.taxi_right,
-                '1taxi_straight': !!state.current.sprites['1taxi_straight'],
-            });
+
+            // Initialize road immediately after assets are loaded to ensure segments exist before first render
+            if (state.current.segments.length === 0) {
+                resetRoad();
+            }
+
             setAssetsLoaded(true);
         };
         loadAssets();
@@ -333,7 +331,19 @@ export default function GameSpeedPage() {
     // --- Game Logic functions ---
     const findSegment = (z: number) => {
         if (!state.current.segments || state.current.segments.length === 0) {
-            return { index: 0, p1: { world: { x: 0, y: 0, z: 0 }, camera: { x: 0, y: 0, z: 0 }, screen: { scale: 0, x: 0, y: 0, w: 0 } } } as Segment;
+            // Return dummy segment with all required properties to prevent crashes
+            return {
+                index: 0,
+                p1: { world: { x: 0, y: 0, z: 0 }, camera: { x: 0, y: 0, z: 0 }, screen: { scale: 0, x: 0, y: 0, w: 0 } },
+                p2: { world: { x: 0, y: 0, z: 0 }, camera: { x: 0, y: 0, z: 0 }, screen: { scale: 0, x: 0, y: 0, w: 0 } },
+                curve: 0,
+                color: COLORS.LIGHT,
+                sprites: [],
+                cars: [],
+                clip: 0,
+                fog: 0,
+                looped: false
+            } as Segment;
         }
         return state.current.segments[Math.floor(z / SEGMENT_LENGTH) % state.current.segments.length];
     };
@@ -1208,6 +1218,13 @@ export default function GameSpeedPage() {
         const height = canvas.height;
         const { segments, position, playerZ, playerX, speed, sprites } = state.current;
 
+        // Break early if segments are not initialized to prevent crashes
+        if (!segments || segments.length === 0) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+            return;
+        }
+
         // Clear and Sky
         ctx.fillStyle = COLORS.SKY;
         ctx.fillRect(0, 0, width, height);
@@ -1331,13 +1348,8 @@ export default function GameSpeedPage() {
         // Speed Effects (Calculated in CSS Filter for performance)
     };
 
-    // --- Effects ---
-    // --- Manual Road Init (Consistent once built) ---
-    useEffect(() => {
-        if (assetsLoaded && state.current.segments.length === 0) {
-            resetRoad();
-        }
-    }, [assetsLoaded]);
+    // --- Manual Road Init removed here and moved to loadAssets for better sync ---
+
 
     useEffect(() => {
         setMounted(true);
@@ -1771,8 +1783,47 @@ export default function GameSpeedPage() {
             {/* Main Game Canvas */}
             <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
 
+            {/* Loading Overlay */}
+            {!assetsLoaded && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    backgroundColor: '#020617',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 999,
+                    gap: '1.5rem'
+                }}>
+                    <div style={{
+                        width: '40px',
+                        height: '40px',
+                        border: '3px solid rgba(59, 130, 246, 0.2)',
+                        borderTopColor: '#3b82f6',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                    }} />
+                    <div style={{
+                        color: '#60a5fa',
+                        fontSize: '0.75rem',
+                        fontWeight: 900,
+                        letterSpacing: '0.4em',
+                        textTransform: 'uppercase',
+                        textShadow: '0 0 10px rgba(59, 130, 246, 0.5)'
+                    }}>
+                        Initializing Engine...
+                    </div>
+                    <style>{`
+                        @keyframes spin {
+                            to { transform: rotate(360deg); }
+                        }
+                    `}</style>
+                </div>
+            )}
+
             {/* UI Overlay - Using explicitly inline styles to bypass Tailwind generation issues */}
-            {mounted && (
+            {mounted && assetsLoaded && (
                 <div
                     style={{
                         position: 'fixed',
@@ -1796,29 +1847,28 @@ export default function GameSpeedPage() {
                                 <div style={{
                                     backgroundColor: 'rgba(0, 0, 0, 0.65)',
                                     backdropFilter: 'blur(15px)',
-                                    padding: isMobile ? '0.75rem 1rem' : '1.5rem 2.5rem',
-                                    borderRadius: isMobile ? '1.5rem' : '2rem',
+                                    padding: isMobile ? '0.4rem 0.6rem' : '1.5rem 2.5rem',
+                                    borderRadius: isMobile ? '0.8rem' : '2rem',
                                     border: '1px solid rgba(255, 255, 255, 0.15)',
                                     flex: isMobile ? 1 : 'none',
                                     textAlign: isMobile ? 'center' : 'left'
                                 }}>
-                                    <div style={{ fontSize: isMobile ? '9px' : '10px', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3em', fontWeight: 900, marginBottom: '0.25rem' }}>Speedometer</div>
-                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    <div style={{ fontSize: isMobile ? '7px' : '10px', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.3em', fontWeight: 900, marginBottom: '0.1rem' }}>Speedometer</div>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                                         <span style={{
-                                            fontSize: isMobile ? '2.5rem' : '4.5rem',
+                                            fontSize: isMobile ? '1.75rem' : '4.5rem',
                                             fontWeight: 900,
                                             fontFamily: 'var(--font-rajdhani)',
                                             color: '#fff',
                                             fontStyle: 'italic',
-                                            textShadow: '0 0 20px rgba(255,255,255,0.7), 0 0 40px rgba(59, 130, 246, 0.5)'
+                                            textShadow: '0 0 15px rgba(255,255,255,0.7)'
                                         }}>
                                             {stats.speed}
                                         </span>
-                                        <span style={{ fontSize: isMobile ? '0.8rem' : '1rem', color: '#60a5fa', fontWeight: 800 }}>KPH</span>
+                                        <span style={{ fontSize: isMobile ? '0.6rem' : '1rem', color: '#60a5fa', fontWeight: 800 }}>KPH</span>
                                     </div>
                                 </div>
 
-                                {/* POV Toggle - User Friendly Mobile Optimization */}
                                 <button
                                     onClick={() => {
                                         const next = state.current.viewMode === 'first' ? 'third' : 'first';
@@ -1829,9 +1879,9 @@ export default function GameSpeedPage() {
                                         pointerEvents: 'auto',
                                         backgroundColor: 'rgba(59, 130, 246, 0.25)',
                                         backdropFilter: 'blur(15px)',
-                                        width: isMobile ? '3.5rem' : '5rem',
-                                        height: isMobile ? '3.5rem' : '5rem',
-                                        borderRadius: '1.25rem',
+                                        width: isMobile ? '2.5rem' : '5rem',
+                                        height: isMobile ? '2.5rem' : '5rem',
+                                        borderRadius: isMobile ? '0.6rem' : '1.25rem',
                                         border: '2px solid rgba(59, 130, 246, 0.5)',
                                         color: 'white',
                                         cursor: 'pointer',
@@ -1843,61 +1893,63 @@ export default function GameSpeedPage() {
                                         gap: '2px'
                                     }}
                                 >
-                                    <span style={{ fontSize: isMobile ? '1.2rem' : '1.8rem', filter: 'drop-shadow(0 0 5px rgba(255,255,255,0.5))' }}>
+                                    <span style={{ fontSize: isMobile ? '1rem' : '1.8rem', filter: 'drop-shadow(0 0 5px rgba(255,255,255,0.5))' }}>
                                         {viewMode === 'first' ? '🎥' : '👤'}
                                     </span>
                                     {!isMobile && <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', opacity: 0.8 }}>POV (T)</span>}
                                 </button>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '0.5rem', width: isMobile ? '100%' : 'auto' }}>
+                            <div style={{ display: 'flex', gap: '0.4rem', width: isMobile ? '100%' : 'auto' }}>
                                 <div style={{
                                     backgroundColor: 'rgba(0, 0, 0, 0.65)',
                                     backdropFilter: 'blur(15px)',
-                                    padding: '0.6rem 1rem',
-                                    borderRadius: '1.25rem',
+                                    padding: isMobile ? '0.4rem 0.75rem' : '0.6rem 1rem',
+                                    borderRadius: isMobile ? '0.8rem' : '1.25rem',
                                     border: '1px solid rgba(255, 255, 255, 0.1)',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '0.75rem',
+                                    gap: '0.5rem',
                                     flex: isMobile ? 1 : 'none'
                                 }}>
-                                    <span style={{ color: '#60a5fa', fontWeight: 900, fontSize: '0.7rem', textShadow: '0 0 10px rgba(59, 130, 246, 0.8)' }}>NOS</span>
-                                    <div style={{ flex: 1, minWidth: isMobile ? '40px' : '80px', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <span style={{ color: '#60a5fa', fontWeight: 900, fontSize: isMobile ? '0.6rem' : '0.7rem', textShadow: '0 0 10px rgba(59, 130, 246, 0.8)' }}>NOS</span>
+                                    <div style={{ flex: 1, minWidth: isMobile ? '30px' : '80px', height: isMobile ? '4px' : '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
                                         <div style={{ width: `${stats.nos}%`, height: '100%', backgroundColor: '#3b82f6', boxShadow: '0 0 10px #3b82f6' }} />
                                     </div>
                                 </div>
                                 <div style={{
                                     backgroundColor: 'rgba(0, 0, 0, 0.65)',
                                     backdropFilter: 'blur(15px)',
-                                    padding: '0.6rem 1rem',
-                                    borderRadius: '1.25rem',
+                                    padding: isMobile ? '0.4rem 0.75rem' : '0.6rem 1rem',
+                                    borderRadius: isMobile ? '0.8rem' : '1.25rem',
                                     border: '1px solid rgba(255, 255, 255, 0.1)',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '0.5rem',
-                                    flex: isMobile ? 'none' : 'none'
+                                    gap: '0.35rem',
+                                    flex: 'none'
                                 }}>
-                                    <span style={{ color: '#4ade80', fontWeight: 900, fontSize: '0.7rem', textShadow: '0 0 10px rgba(74, 222, 128, 0.8)' }}>LAP</span>
-                                    <span style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: 900, color: '#fff' }}>{stats.lap}/{stats.totalLaps}</span>
+                                    <span style={{ color: '#4ade80', fontWeight: 900, fontSize: isMobile ? '0.6rem' : '0.7rem', textShadow: '0 0 10px rgba(74, 222, 128, 0.8)' }}>LAP</span>
+                                    <span style={{ fontSize: isMobile ? '0.8rem' : '1.25rem', fontWeight: 900, color: '#fff' }}>{stats.lap}/{stats.totalLaps}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Mini Map - Visible on both PC and Mobile */}
-                        <div style={{ position: 'relative', pointerEvents: 'auto' }}>
+                        {/* Mini Map - Enlarge for Mobile */}
+                        <div style={{ position: 'relative', pointerEvents: 'auto', alignSelf: isMobile ? 'flex-end' : 'auto' }}>
                             <div style={{
                                 backgroundColor: 'rgba(0, 0, 0, 0.4)',
                                 backdropFilter: 'blur(10px)',
-                                padding: isMobile ? '0.25rem' : '0.4rem',
-                                borderRadius: isMobile ? '0.75rem' : '1rem',
+                                padding: isMobile ? '0.2rem' : '0.4rem',
+                                borderRadius: isMobile ? '0.6rem' : '1rem',
                                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                                transform: isMobile ? 'scale(0.6)' : 'none',
+                                transform: isMobile ? 'scale(0.85)' : 'none',
                                 transformOrigin: 'top right',
+                                marginTop: isMobile ? '0.5rem' : '0',
+                                marginRight: isMobile ? '0.5rem' : '0',
                             }}>
                                 <canvas
                                     ref={miniMapRef}
-                                    style={{ borderRadius: isMobile ? '0.5rem' : '0.75rem', display: 'block' }}
+                                    style={{ borderRadius: isMobile ? '0.4rem' : '0.75rem', display: 'block' }}
                                 />
                             </div>
                         </div>
@@ -1913,13 +1965,13 @@ export default function GameSpeedPage() {
                                 <div style={{ display: 'flex', gap: '0.75rem', pointerEvents: 'auto' }}>
                                     <button
                                         style={{
-                                            width: '5rem', height: '5rem',
+                                            width: '4.25rem', height: '4.25rem',
                                             background: stats.nos > 0 ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'rgba(255, 255, 255, 0.05)',
                                             borderRadius: '50%',
                                             border: '2px solid rgba(59, 130, 246, 0.5)',
                                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                             cursor: 'pointer', opacity: stats.nos > 0 ? 1 : 0.5, color: 'white', fontWeight: 900,
-                                            boxShadow: stats.nos > 0 ? '0 0 20px rgba(59, 130, 246, 0.5)' : 'none',
+                                            boxShadow: stats.nos > 0 ? '0 0 15px rgba(59, 130, 246, 0.4)' : 'none',
                                         }}
                                         onTouchStart={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
                                         onTouchEnd={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
@@ -1935,7 +1987,7 @@ export default function GameSpeedPage() {
                                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
                                     <button
                                         style={{
-                                            width: '5rem', height: '5rem',
+                                            width: '4.25rem', height: '4.25rem',
                                             backgroundColor: state.current.keySlower ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.15)',
                                             backdropFilter: 'blur(8px)',
                                             borderRadius: '50%',
@@ -1943,7 +1995,7 @@ export default function GameSpeedPage() {
                                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                             cursor: 'pointer', color: '#ef4444', fontWeight: 900,
                                             textShadow: '0 0 8px rgba(239, 68, 68, 0.8)',
-                                            boxShadow: state.current.keySlower ? '0 0 20px rgba(239, 68, 68, 0.5)' : 'none',
+                                            boxShadow: state.current.keySlower ? '0 0 15px rgba(239, 68, 68, 0.4)' : 'none',
                                         }}
                                         onTouchStart={(e) => { e.preventDefault(); state.current.keySlower = true; }}
                                         onTouchEnd={(e) => { e.preventDefault(); state.current.keySlower = false; }}
