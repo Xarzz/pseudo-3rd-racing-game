@@ -117,6 +117,12 @@ export default function GameSpeedPage() {
     const [assetsLoaded, setAssetsLoaded] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [aspectRatio, setAspectRatio] = useState(1); // width/height ratio for responsive sizing
+
+    // Touch/Swipe refs for mobile controls
+    const touchStartX = useRef<number | null>(null);
+    const touchCurrentX = useRef<number | null>(null);
+    const swipeThreshold = 30; // minimum swipe distance to trigger steer
 
     // Refs for game loop
     const state = useRef({
@@ -139,6 +145,7 @@ export default function GameSpeedPage() {
         cameraDepth: 1 / Math.tan((FIELD_OF_VIEW / 2) * Math.PI / 180),
         viewMode: 'third' as 'first' | 'third',
         bgOffset: 0,
+        analogSteer: 0, // -1 to 1 for smoother mobile steering
         // NOS Animation State
         nosPhase: 'idle' as 'idle' | 'startup' | 'loop' | 'ending',
         nosFrame: 0,
@@ -944,8 +951,14 @@ export default function GameSpeedPage() {
 
         // Steer
         let nextPlayerX = playerX;
-        if (keyLeft) nextPlayerX = playerX - dx;
-        else if (keyRight) nextPlayerX = playerX + dx;
+        if (isMobile) {
+            // Analog steering for mobile based on swipe distance
+            nextPlayerX = playerX + (state.current.analogSteer * dx * 1.5);
+        } else {
+            // Traditional key steering for PC
+            if (keyLeft) nextPlayerX = playerX - dx;
+            else if (keyRight) nextPlayerX = playerX + dx;
+        }
 
         // Centrifugal
         nextPlayerX = nextPlayerX - (dx * speedPercent * playerSegment.curve * 0.2); // Dikurangi untuk centrifugal lebih halus
@@ -1146,7 +1159,9 @@ export default function GameSpeedPage() {
         state.current.speed = nextSpeed;
 
         // --- Dynamic FOV / Tunnel Vision Effect when NOS is active ---
-        const baseDepth = 1 / Math.tan((FIELD_OF_VIEW / 2) * Math.PI / 180);
+        // Narrower FOV/Higher Depth for mobile portrait to make road look bigger
+        const mobileDepthFactor = (isMobile && aspectRatio < 1) ? 1.4 : 1.0;
+        const baseDepth = (1 / Math.tan((FIELD_OF_VIEW / 2) * Math.PI / 180)) * mobileDepthFactor;
         const targetDepth = (keyBoost && nextNos > 0) ? baseDepth * 1.5 : baseDepth; // 50% more depth = Narrower road
 
         // Smoothly interpolate cameraDepth (lerp)
@@ -1208,7 +1223,8 @@ export default function GameSpeedPage() {
             const bgH = bg.height;
 
             // 1. Scale to cover screen with extra width for movement
-            const scaleX = (width / bgW) * 1.3;
+            const extraParallax = isMobile ? 1.5 : 1.3;
+            const scaleX = (width / bgW) * extraParallax;
             const scaleY = (height / bgH);
             const layerScale = Math.max(scaleX, scaleY);
 
@@ -1406,19 +1422,111 @@ export default function GameSpeedPage() {
         };
     }, []);
 
-    // Resize handling
+    // Touch/Swipe controls for mobile steering
+    useEffect(() => {
+        const handleTouchStart = (e: TouchEvent) => {
+            // Check if touch is on a button (don't intercept button touches)
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'BUTTON' || target.closest('button')) {
+                return;
+            }
+
+            if (e.touches.length > 0) {
+                touchStartX.current = e.touches[0].clientX;
+                touchCurrentX.current = e.touches[0].clientX;
+            }
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            // Check if touch is on a button
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'BUTTON' || target.closest('button')) {
+                return;
+            }
+
+            if (e.touches.length > 0 && touchStartX.current !== null) {
+                touchCurrentX.current = e.touches[0].clientX;
+                const deltaX = touchCurrentX.current - touchStartX.current;
+
+                // Calculate analog steering value (-1.0 to 1.0)
+                const maxRange = window.innerWidth / 3;
+                state.current.analogSteer = Util.limit(deltaX / maxRange, -1, 1);
+
+                // Keep boolean state for animation compatibility
+                if (deltaX < -20) {
+                    state.current.keyLeft = true;
+                    state.current.keyRight = false;
+                } else if (deltaX > 20) {
+                    state.current.keyRight = true;
+                    state.current.keyLeft = false;
+                } else {
+                    state.current.keyLeft = false;
+                    state.current.keyRight = false;
+                }
+            }
+        };
+
+        const handleTouchEnd = () => {
+            touchStartX.current = null;
+            touchCurrentX.current = null;
+            state.current.analogSteer = 0;
+            // Reset steering when touch ends
+            state.current.keyLeft = false;
+            state.current.keyRight = false;
+        };
+
+        // Only add swipe handlers if mobile
+        if (isMobile) {
+            window.addEventListener('touchstart', handleTouchStart, { passive: true });
+            window.addEventListener('touchmove', handleTouchMove, { passive: true });
+            window.addEventListener('touchend', handleTouchEnd, { passive: true });
+            window.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+        }
+
+        return () => {
+            window.removeEventListener('touchstart', handleTouchStart);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+            window.removeEventListener('touchcancel', handleTouchEnd);
+        };
+    }, [isMobile]);
+
+    // Resize handling with mobile detection and aspect ratio
     useEffect(() => {
         const setSize = () => {
             if (canvasRef.current) {
                 canvasRef.current.width = window.innerWidth;
                 canvasRef.current.height = window.innerHeight;
             }
-            setIsMobile(window.innerWidth < 768);
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const ratio = w / h;
+            setAspectRatio(ratio);
+
+            // Detect mobile: small width OR portrait mode with touch support
+            const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            const isPortrait = ratio < 1;
+            const isSmallScreen = w < 768;
+            const detectedMobile = (isSmallScreen || isPortrait) && hasTouchSupport;
+
+            setIsMobile(detectedMobile);
+
+            // On mobile, auto-forward is always enabled (car drives automatically)
+            if (detectedMobile && gameState === 'playing') {
+                state.current.keyFaster = true;
+            }
         };
         window.addEventListener('resize', setSize);
         if (mounted) setSize();
         return () => window.removeEventListener('resize', setSize);
-    }, [mounted]);
+    }, [mounted, gameState]);
+
+    // Mobile auto-forward: Keep gas pressed while playing on mobile
+    useEffect(() => {
+        if (isMobile && gameState === 'playing') {
+            state.current.keyFaster = true;
+        }
+    }, [isMobile, gameState]);
 
     const drawMiniMap = () => {
         const canvas = miniMapRef.current;
@@ -1771,111 +1879,195 @@ export default function GameSpeedPage() {
                             </div>
                         </div>
 
-                        {/* Mini Map - Reverted to Preferred Style */}
-                        <div style={{ position: 'relative', pointerEvents: 'auto', display: isMobile ? 'none' : 'block' }}>
+                        {/* Mini Map - Visible on both PC and Mobile */}
+                        <div style={{ position: 'relative', pointerEvents: 'auto' }}>
                             <div style={{
                                 backgroundColor: 'rgba(0, 0, 0, 0.4)',
                                 backdropFilter: 'blur(10px)',
-                                padding: '0.4rem',
-                                borderRadius: '1rem',
+                                padding: isMobile ? '0.25rem' : '0.4rem',
+                                borderRadius: isMobile ? '0.75rem' : '1rem',
                                 border: '1px solid rgba(255, 255, 255, 0.1)',
+                                transform: isMobile ? 'scale(0.6)' : 'none',
+                                transformOrigin: 'top right',
                             }}>
                                 <canvas
                                     ref={miniMapRef}
-                                    style={{ borderRadius: '0.75rem', display: 'block' }}
+                                    style={{ borderRadius: isMobile ? '0.5rem' : '0.75rem', display: 'block' }}
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {/* Footer: Mobile Controls - Always Visible */}
+                    {/* Footer: Controls */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '100%', pointerEvents: 'none', paddingBottom: isMobile ? '2rem' : '1rem' }}>
-                        {/* Steering Controls - Compact Round */}
-                        <div style={{ display: 'flex', gap: '0.75rem', pointerEvents: 'auto' }}>
-                            <button
-                                style={{
-                                    width: isMobile ? '4rem' : '5rem', height: isMobile ? '4rem' : '5rem',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                    backdropFilter: 'blur(10px)',
-                                    borderRadius: '50%',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', outline: 'none',
-                                }}
-                                onTouchStart={(e) => { e.preventDefault(); state.current.keyLeft = true; }}
-                                onTouchEnd={(e) => { e.preventDefault(); state.current.keyLeft = false; }}
-                            >
-                                <span style={{ fontSize: '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>◀</span>
-                            </button>
-                            <button
-                                style={{
-                                    width: isMobile ? '4rem' : '5rem', height: isMobile ? '4rem' : '5rem',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                    backdropFilter: 'blur(10px)',
-                                    borderRadius: '50%',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', outline: 'none',
-                                }}
-                                onTouchStart={(e) => { e.preventDefault(); state.current.keyRight = true; }}
-                                onTouchEnd={(e) => { e.preventDefault(); state.current.keyRight = false; }}
-                            >
-                                <span style={{ fontSize: '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>▶</span>
-                            </button>
-                        </div>
 
-                        {/* Right Controls (Action) */}
-                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
-                            {/* Brake Button - Compact */}
-                            <button
-                                style={{
-                                    width: isMobile ? '3.5rem' : '4.5rem', height: isMobile ? '3.5rem' : '4.5rem',
-                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                    backdropFilter: 'blur(8px)',
-                                    borderRadius: '50%',
-                                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', color: '#ef4444', fontWeight: 900, fontSize: '0.6rem',
-                                    textShadow: '0 0 8px rgba(239, 68, 68, 0.8)'
-                                }}
-                                onTouchStart={(e) => { e.preventDefault(); state.current.keySlower = true; }}
-                                onTouchEnd={(e) => { e.preventDefault(); state.current.keySlower = false; }}
-                            >
-                                STOP
-                            </button>
+                        {/* Mobile: Swipe Indicator + Left Controls (NOS on left for thumb) */}
+                        {isMobile ? (
+                            <>
+                                {/* Left side - NOS Button */}
+                                <div style={{ display: 'flex', gap: '0.75rem', pointerEvents: 'auto' }}>
+                                    <button
+                                        style={{
+                                            width: '5rem', height: '5rem',
+                                            background: stats.nos > 0 ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'rgba(255, 255, 255, 0.05)',
+                                            borderRadius: '50%',
+                                            border: '2px solid rgba(59, 130, 246, 0.5)',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                            cursor: 'pointer', opacity: stats.nos > 0 ? 1 : 0.5, color: 'white', fontWeight: 900,
+                                            boxShadow: stats.nos > 0 ? '0 0 20px rgba(59, 130, 246, 0.5)' : 'none',
+                                        }}
+                                        onTouchStart={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
+                                        onTouchEnd={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
+                                    >
+                                        <span style={{ fontSize: '1.5rem', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>🚀</span>
+                                        <span style={{ fontSize: '0.7rem', marginTop: '2px' }}>NOS</span>
+                                    </button>
+                                </div>
 
-                            {/* Gas Button - Compact Circle */}
-                            <button
-                                style={{
-                                    width: isMobile ? '5.5rem' : '7.5rem', height: isMobile ? '5.5rem' : '7.5rem',
-                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                    borderRadius: '50%',
-                                    border: '3px solid rgba(255, 255, 255, 0.1)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', color: 'white', fontWeight: 900, fontSize: '1.25rem',
-                                }}
-                                onTouchStart={(e) => { e.preventDefault(); state.current.keyFaster = true; }}
-                                onTouchEnd={(e) => { e.preventDefault(); state.current.keyFaster = false; }}
-                            >
-                                <span style={{ filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>GO</span>
-                            </button>
+                                {/* Center - Swipe Indicator */}
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'rgba(255, 255, 255, 0.5)',
+                                    pointerEvents: 'none'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span style={{ fontSize: '1.5rem', opacity: state.current.keyLeft ? 1 : 0.3 }}>👈</span>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Swipe to Steer</span>
+                                        <span style={{ fontSize: '1.5rem', opacity: state.current.keyRight ? 1 : 0.3 }}>👉</span>
+                                    </div>
+                                </div>
 
-                            {/* NOS Button - Compact */}
-                            <button
-                                style={{
-                                    width: isMobile ? '4rem' : '5rem', height: isMobile ? '4rem' : '5rem',
-                                    background: stats.nos > 0 ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'rgba(255, 255, 255, 0.05)',
-                                    borderRadius: '50%',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', opacity: stats.nos > 0 ? 1 : 0.5, color: 'white', fontWeight: 900,
-                                }}
-                                onTouchStart={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
-                                onTouchEnd={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
-                            >
-                                <span style={{ filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>NOS</span>
-                            </button>
-                        </div>
+                                {/* Right side - Brake Button */}
+                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
+                                    <button
+                                        style={{
+                                            width: '5rem', height: '5rem',
+                                            backgroundColor: state.current.keySlower ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.15)',
+                                            backdropFilter: 'blur(8px)',
+                                            borderRadius: '50%',
+                                            border: '2px solid rgba(239, 68, 68, 0.5)',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                            cursor: 'pointer', color: '#ef4444', fontWeight: 900,
+                                            textShadow: '0 0 8px rgba(239, 68, 68, 0.8)',
+                                            boxShadow: state.current.keySlower ? '0 0 20px rgba(239, 68, 68, 0.5)' : 'none',
+                                        }}
+                                        onTouchStart={(e) => { e.preventDefault(); state.current.keySlower = true; }}
+                                        onTouchEnd={(e) => { e.preventDefault(); state.current.keySlower = false; }}
+                                    >
+                                        <span style={{ fontSize: '1.5rem' }}>🛑</span>
+                                        <span style={{ fontSize: '0.7rem', marginTop: '2px' }}>BRAKE</span>
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            /* PC: Original controls with steering buttons and GO */
+                            <>
+                                {/* Steering Controls - Compact Round */}
+                                <div style={{ display: 'flex', gap: '0.75rem', pointerEvents: 'auto' }}>
+                                    <button
+                                        style={{
+                                            width: '5rem', height: '5rem',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                            backdropFilter: 'blur(10px)',
+                                            borderRadius: '50%',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            cursor: 'pointer', outline: 'none',
+                                        }}
+                                        onTouchStart={(e) => { e.preventDefault(); state.current.keyLeft = true; }}
+                                        onTouchEnd={(e) => { e.preventDefault(); state.current.keyLeft = false; }}
+                                        onMouseDown={() => { state.current.keyLeft = true; }}
+                                        onMouseUp={() => { state.current.keyLeft = false; }}
+                                        onMouseLeave={() => { state.current.keyLeft = false; }}
+                                    >
+                                        <span style={{ fontSize: '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>◀</span>
+                                    </button>
+                                    <button
+                                        style={{
+                                            width: '5rem', height: '5rem',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                            backdropFilter: 'blur(10px)',
+                                            borderRadius: '50%',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            cursor: 'pointer', outline: 'none',
+                                        }}
+                                        onTouchStart={(e) => { e.preventDefault(); state.current.keyRight = true; }}
+                                        onTouchEnd={(e) => { e.preventDefault(); state.current.keyRight = false; }}
+                                        onMouseDown={() => { state.current.keyRight = true; }}
+                                        onMouseUp={() => { state.current.keyRight = false; }}
+                                        onMouseLeave={() => { state.current.keyRight = false; }}
+                                    >
+                                        <span style={{ fontSize: '1.25rem', color: 'white', filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>▶</span>
+                                    </button>
+                                </div>
+
+                                {/* Right Controls (Action) */}
+                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', pointerEvents: 'auto' }}>
+                                    {/* Brake Button - Compact */}
+                                    <button
+                                        style={{
+                                            width: '4.5rem', height: '4.5rem',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                            backdropFilter: 'blur(8px)',
+                                            borderRadius: '50%',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            cursor: 'pointer', color: '#ef4444', fontWeight: 900, fontSize: '0.6rem',
+                                            textShadow: '0 0 8px rgba(239, 68, 68, 0.8)'
+                                        }}
+                                        onTouchStart={(e) => { e.preventDefault(); state.current.keySlower = true; }}
+                                        onTouchEnd={(e) => { e.preventDefault(); state.current.keySlower = false; }}
+                                        onMouseDown={() => { state.current.keySlower = true; }}
+                                        onMouseUp={() => { state.current.keySlower = false; }}
+                                        onMouseLeave={() => { state.current.keySlower = false; }}
+                                    >
+                                        STOP
+                                    </button>
+
+                                    {/* Gas Button - Compact Circle */}
+                                    <button
+                                        style={{
+                                            width: '7.5rem', height: '7.5rem',
+                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                            borderRadius: '50%',
+                                            border: '3px solid rgba(255, 255, 255, 0.1)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            cursor: 'pointer', color: 'white', fontWeight: 900, fontSize: '1.25rem',
+                                        }}
+                                        onTouchStart={(e) => { e.preventDefault(); state.current.keyFaster = true; }}
+                                        onTouchEnd={(e) => { e.preventDefault(); state.current.keyFaster = false; }}
+                                        onMouseDown={() => { state.current.keyFaster = true; }}
+                                        onMouseUp={() => { state.current.keyFaster = false; }}
+                                        onMouseLeave={() => { state.current.keyFaster = false; }}
+                                    >
+                                        <span style={{ filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>GO</span>
+                                    </button>
+
+                                    {/* NOS Button - Compact */}
+                                    <button
+                                        style={{
+                                            width: '5rem', height: '5rem',
+                                            background: stats.nos > 0 ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'rgba(255, 255, 255, 0.05)',
+                                            borderRadius: '50%',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            cursor: 'pointer', opacity: stats.nos > 0 ? 1 : 0.5, color: 'white', fontWeight: 900,
+                                        }}
+                                        onTouchStart={(e) => { e.preventDefault(); state.current.keyBoost = true; }}
+                                        onTouchEnd={(e) => { e.preventDefault(); state.current.keyBoost = false; }}
+                                        onMouseDown={() => { state.current.keyBoost = true; }}
+                                        onMouseUp={() => { state.current.keyBoost = false; }}
+                                        onMouseLeave={() => { state.current.keyBoost = false; }}
+                                    >
+                                        <span style={{ filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.8))' }}>NOS</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
